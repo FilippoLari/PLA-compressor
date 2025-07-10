@@ -288,9 +288,11 @@ public:
         return {i_x, i_y};
     }
 
-    std::pair<long double, SY> get_floating_point_segment(const X &origin) const {
-        if (one_point())
-            return {0, (rectangle[0].y + rectangle[1].y) / 2};
+    std::tuple<long double, SY, SY> get_floating_point_segment(const X &origin, const X &last) const {
+        if (one_point()) {
+            const auto avg = (rectangle[0].y + rectangle[1].y) / 2;
+            return {0, avg, avg}; 
+        }
 
         if constexpr (std::is_integral_v<X> && std::is_integral_v<Y>) {
             auto slope = rectangle[3] - rectangle[1];
@@ -298,14 +300,18 @@ public:
             auto intercept_d = slope.dx;
             auto rounding_term = ((intercept_n < 0) ^ (intercept_d < 0) ? -1 : +1) * intercept_d / 2;
             auto intercept = (intercept_n + rounding_term) / intercept_d + rectangle[1].y;
-            return {static_cast<long double>(slope), intercept};
+
+            auto last_y = static_cast<long double>(slope) * double(last - origin) + intercept;
+
+            return {static_cast<long double>(slope), intercept, last_y};
         }
 
+        // todo: fix this
         auto[i_x, i_y] = get_intersection();
         auto[min_slope, max_slope] = get_slope_range();
         auto slope = (min_slope + max_slope) / 2.;
         auto intercept = i_y - (i_x - origin) * slope;
-        return {slope, intercept};
+        return {slope, intercept, 0};
     }
 
     std::pair<long double, long double> get_slope_range() const {

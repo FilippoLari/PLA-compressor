@@ -2,6 +2,8 @@
 
 #include "compressed_pla.hpp"
 
+#include "sux/bits/EliasFano.hpp"
+
 int main(void) {
     
     std::vector<uint32_t> data(10000000);
@@ -10,12 +12,15 @@ int main(void) {
     
     std::sort(data.begin(), data.end());
 
-    std::vector<uint32_t> unique_data;
+    CompressedPLA<uint32_t, uint32_t, 128> cpla(data);
 
-    for(uint32_t i = 1; i < data.size(); ++i)
-        if(data[i] != data[i - 1]) unique_data.push_back(data[i]); 
+    std::map<std::string, size_t> components = cpla.components_size();
 
-    CompressedPLA<uint32_t, uint32_t, 128> cpla(unique_data);
+    std::cout << "bits per segment: " << cpla.bps() << std::endl;
 
-    std::cout << "bps: " << cpla.bps() << std::endl;
+    std::cout << "compression ratio: " << double(160) / cpla.bps() << std::endl; 
+
+    for(const auto &entry : components)
+        std::cout << "component: " << entry.first << " bits: " << entry.second <<
+            " perc: " << (double(entry.second) / double(cpla.size())) * 100 << "%" << std::endl;
 }

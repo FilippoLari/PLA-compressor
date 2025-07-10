@@ -18,6 +18,7 @@ add_library(pla-compressor INTERFACE)
 target_include_directories(pla-compressor INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/sdsl-lite/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/sux
 )
 target_link_libraries(pla-compressor INTERFACE OpenMP::OpenMP_CXX)
 
