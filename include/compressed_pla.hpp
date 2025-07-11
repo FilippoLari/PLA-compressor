@@ -6,10 +6,10 @@
 #include <vector>
 #include <map>
 
-#include <sdsl/vlc_vector.hpp>
-#include <sdsl/int_vector.hpp>
-#include <sdsl/sd_vector.hpp>
-#include <sdsl/util.hpp>
+#include "sdsl/vlc_vector.hpp"
+#include "sdsl/int_vector.hpp"
+#include "sdsl/sd_vector.hpp"
+#include "sdsl/util.hpp"
 
 #include "sux/bits/EliasFano.hpp"
 
@@ -29,9 +29,15 @@ class CompressedPLA {
     sdsl::rank_support_sd<> rank_x;
     sdsl::select_support_sd<> select_x;
 
-    sux::bits::EliasFano<> y;
+    //sux::bits::EliasFano<> y;
+    sdsl::sd_vector<> y;
+    sdsl::select_support_sd<> select_y;
 
-    sdsl::vlc_vector<> last_y;
+    //sux::bits::EliasFano<> last_y;
+    sdsl::sd_vector<> last_y;
+    sdsl::select_support_sd<> select_last_y;
+
+    //sdsl::vlc_vector<> last_y;
 
     sdsl::int_vector<> betas;
     sdsl::int_vector<> gammas;
@@ -39,18 +45,21 @@ class CompressedPLA {
     uint64_t beta_shift;
     uint64_t gamma_shift;
 
-    size_t n_segments;
+    uint64_t n_segments;
+    
+    uint64_t n;
+    Y u;
 
 public:
 
     CompressedPLA() = default;
 
-    explicit CompressedPLA(const std::vector<Y> data) {
+    explicit CompressedPLA(const std::vector<Y> &data) {
         if(data.size() == 0) [[unlikely]]
             return;
 
         const uint64_t n = data.size();
-        const Y u = *std::max_element(data.begin(), data.end());
+        const Y u = data.back(); // the sequence is increasing
 
         std::vector<segment> segments;
         segments.reserve(n / (Epsilon * Epsilon));
@@ -60,14 +69,13 @@ public:
 
         n_segments = make_segmentation_par(n, Epsilon, in_fun, out_fun);
 
-        sdsl::bit_vector bv_x(n, 0);
-        sdsl::bit_vector bv_y(u + 1, 0);
+        sdsl::bit_vector bv_x(n + 1, 0);
 
         betas = sdsl::int_vector<>(n_segments);
         gammas = sdsl::int_vector<>(n_segments);
 
         std::vector<uint64_t> tmp_y(n_segments);
-        std::vector<int64_t> tmp_last_y(n_segments);
+        std::vector<uint64_t> tmp_last_y(n_segments);
         std::vector<int64_t> tmp_betas(n_segments);
         std::vector<int64_t> tmp_gammas(n_segments);
 
@@ -84,10 +92,8 @@ public:
             // first covered y-value of the i-th segment
             tmp_y[i] = data[first_x];
 
-            // last covered y-value y' of the i-th segment as
-            // delta with respect to the first covered one.
-            // This is because y'_i \in [y_i, y_i+1]
-            tmp_last_y[i] = data[last_x] - tmp_y[i];
+            // last covered y-value of the i-th segment
+            tmp_last_y[i] = data[last_x];
 
             auto [slope, beta, gamma] = segments[i].get_floating_point_segment(first_x, last_x);
 
@@ -102,16 +108,15 @@ public:
             min_gamma = (tmp_gammas[i] < min_gamma) ? tmp_gammas[i] : min_gamma;
         }
 
+        // add a fake starting x-value to avoid corner
+        // cases when performing predict queries 
+        bv_x[n] = 1;
+
         betas = build_packed_vector(tmp_betas, min_beta);
         beta_shift = min_beta;
 
         gammas = build_packed_vector(tmp_gammas, min_gamma);
         gamma_shift = min_gamma;
-
-        /*for(uint64_t i = 0; i < gammas.size(); ++i) {
-            std::cout << gammas[i] << std::endl;
-            assert(gammas[i] <= (2*(Epsilon + 3)));
-        }*/
 
         // initialize the ef sequences containing
         // the first covered x and last covered y value
@@ -119,42 +124,57 @@ public:
         sdsl::util::init_support(rank_x, &x);
 		sdsl::util::init_support(select_x, &x);
 
-        y = sux::bits::EliasFano<>(tmp_y, tmp_y.back() + 1);
+        //y = sux::bits::EliasFano<>(tmp_y, tmp_y.back() + 1);
+        y = sdsl::sd_vector<>(tmp_y.begin(), tmp_y.end());
+        sdsl::util::init_support(select_y, &y);
 
-        last_y = sdsl::vlc_vector<>(tmp_last_y);
-
-        /*for(uint64_t i = 0; i < n_segments; ++i) {
-            assert(betas[i] >= 0);
-            if(i == n_segments - 1)
-                assert(data.back() ==  y.select(i));
-            else
-                assert(data[segments[i + 1].get_first_x() - 1] ==  y.select(i));
-        }
-
-        for(uint64_t i = 1; i < n_segments; ++i)
-            assert(segments[i].get_first_x() == select_x(i + 1));*/
+        //last_y = sux::bits::EliasFano<>(tmp_last_y, tmp_last_y.back() + 1);
+        last_y = sdsl::sd_vector<>(tmp_last_y.begin(), tmp_last_y.end());
+        sdsl::util::init_support(select_last_y, &last_y);
     }
 
-    [[nodiscard]] Y predict(const X x) const {
-        return 0;
+    /**
+     * Given an x-value retrieve the segment covering such abscissa
+     * and return the corresponding y-value given by the segment.
+     * 
+     * todo: add a fake segment at construction time to avoid corner cases
+     * 
+     * @param x a value lying on the x-axis
+     * @return the y-value given by the segment covering x
+     */
+    [[nodiscard]] Y predict(const X x) {
+        uint64_t i = rank_x.rank(x);
+        X x_i = select_x(i + 1);
+        Y y_i = select_y(i + 1);
+        X x_ii = select_x(i + 2);
+        Y y_pi = select_last_y(i + 1);
+        uint64_t beta_i = y_i + (betas[i] - beta_shift);
+        uint64_t gamma_i = y_pi + (gammas[i] - gamma_shift);
+        return Y(double(x - x_i) * double(gamma_i - beta_i) / double(x_ii - x_i)) + beta_i;
     }
 
     /**
      * @return the size in bits of the data structure
      */
     size_t size() {
-        return y.bitCount() + 
+        return //y.bitCount() + last_y.bitCount() + 
                 (sdsl::size_in_bytes(x) + sdsl::size_in_bytes(rank_x) + sdsl::size_in_bytes(select_x)
-                + sdsl::size_in_bytes(last_y)
+                + sdsl::size_in_bytes(y) + sdsl::size_in_bytes(select_y)
+                + sdsl::size_in_bytes(last_y) + sdsl::size_in_bytes(select_last_y)
                 + sdsl::size_in_bytes(betas)
                 + sdsl::size_in_bytes(gammas)
                 + sizeof(n_segments)) * CHAR_BIT;
     }
 
+    /**
+     * @return a map containing the size of each component in bits
+     */
     std::map<std::string, size_t> components_size() {
         std::map<std::string, size_t> components;
-        components["first_y"] = y.bitCount();
-        components["last_y"] = sdsl::size_in_bytes(last_y) * CHAR_BIT;
+        //components["first_y"] = y.bitCount();
+        components["first_y"] = (sdsl::size_in_bytes(y) + sdsl::size_in_bytes(select_y)) * CHAR_BIT;
+        components["last_y"] = (sdsl::size_in_bytes(last_y) + sdsl::size_in_bytes(select_last_y)) * CHAR_BIT;
+        //components["last_y"] = last_y.bitCount();
         components["first_x"] = (sdsl::size_in_bytes(x) + sdsl::size_in_bytes(rank_x) +
                                      sdsl::size_in_bytes(select_x)) * CHAR_BIT;
         components["betas"] = sdsl::size_in_bytes(betas) * CHAR_BIT;
