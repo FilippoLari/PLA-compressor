@@ -6,11 +6,11 @@
 #include <vector>
 
 #include "piecewise_linear_model.hpp"
+#include "float_vector.hpp"
 
-template<typename X, typename Y, typename Floating, size_t Epsilon>
+template<typename X, typename Y, typename Floating>
 class PlainPLA {
 
-    static_assert(Epsilon > 0);
     static_assert(std::is_integral_v<X>);
     static_assert(std::is_integral_v<Y>);
 
@@ -25,16 +25,23 @@ public:
 
     PlainPLA() = default;
 
-    explicit PlainPLA(const std::vector<Y> &data) : n(data.size()) {
+    explicit PlainPLA(const std::vector<Y> &data, const uint64_t epsilon) : n(data.size()) {
         if(n == 0) [[unlikely]] 
             return;
 
-        segments.reserve(n / (Epsilon * Epsilon));
+        segments.reserve(n / (epsilon * epsilon));
 
         auto in_fun = [data](auto i) { return std::pair<X,Y>(i, data[i]); };
         auto out_fun = [&](auto cs) { segments.emplace_back(cs); };
 
-        make_segmentation_par(n, Epsilon, in_fun, out_fun);
+        make_segmentation_par(n, epsilon, in_fun, out_fun);
+
+        std::vector<float> slopes;
+        for(const auto &s : segments)
+            slopes.push_back(s.slope);
+
+        float_vector<float> fv(slopes);
+        std::cout << "bps: " << double(fv.size()) / double(slopes.size()) << std::endl;
     }
 
     [[nodiscard]] Y predict(const X &v) const {
@@ -52,8 +59,8 @@ public:
 
 };
 
-template<typename X, typename Y, typename Floating, size_t Epsilon>
-struct PlainPLA<X, Y, Floating, Epsilon>::Segment {
+template<typename X, typename Y, typename Floating>
+struct PlainPLA<X, Y, Floating>::Segment {
     X x;
     Floating slope;
     Y intercept;

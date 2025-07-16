@@ -1,10 +1,26 @@
 #include <iostream>
 #include <chrono>
 
-#include "compressed_pla.hpp"
+//#include "compressed_pla.hpp"
 #include "plain_pla.hpp"
+#include "huffman_vector.hpp"
 
 int main(void) {
+    
+    /*std::vector<uint64_t> data(100000);
+    std::generate(data.begin(), data.end(), std::rand);
+
+    huffman_vector<uint32_t, 128> huff_vec(data);
+
+    std::cout << "finished" << std::endl;
+    std::cout << "bpe: " << double(huff_vec.size()) / double(data.size()) << std::endl;
+
+    for(uint64_t i = 0; i < data.size(); ++i) {
+        std::cout << "got: " << huff_vec[i] << " expected: " << data[i] << std::endl;
+        assert(huff_vec[i] == data[i]);
+    }*/
+
+    const uint64_t epsilon = 128;
 
     std::vector<uint64_t> data(10000000);
 
@@ -12,9 +28,11 @@ int main(void) {
     
     std::sort(data.begin(), data.end());
 
-    CompressedPLA<uint64_t, uint64_t, 128> cpla(data);
+    PlainPLA<uint64_t, uint64_t, float> pla(data, epsilon);
+    
+    /*CompressedPLA<uint64_t, uint64_t> cpla(data, epsilon);
 
-    PlainPLA<uint64_t, uint64_t, float, 128> pla(data);
+    PlainPLA<uint64_t, uint64_t, float> pla(data, epsilon);
 
     std::map<std::string, size_t> components = cpla.components_size();
 
@@ -29,5 +47,5 @@ int main(void) {
 
     for(const auto &entry : components)
         std::cout << entry.first << ", " << entry.second << ", " <<
-                 (double(entry.second) / double(cpla.size())) * 100 << std::endl;
+                 (double(entry.second) / double(cpla.size())) * 100 << std::endl;*/
 }

@@ -15,10 +15,9 @@
 
 #include "piecewise_linear_model.hpp"
 
-template<typename X, typename Y, size_t Epsilon>
+template<typename X, typename Y>
 class CompressedPLA {
 
-    static_assert(Epsilon > 0);
     static_assert(std::is_integral_v<X>);
     static_assert(std::is_integral_v<Y>);
 
@@ -29,13 +28,13 @@ class CompressedPLA {
     sdsl::rank_support_sd<> rank_x;
     sdsl::select_support_sd<> select_x;
 
-    //sux::bits::EliasFano<> y;
-    sdsl::sd_vector<> y;
-    sdsl::select_support_sd<> select_y;
+    sux::bits::EliasFano<> y;
+    //sdsl::sd_vector<> y;
+    //sdsl::select_support_sd<> select_y;
 
-    //sux::bits::EliasFano<> last_y;
-    sdsl::sd_vector<> last_y;
-    sdsl::select_support_sd<> select_last_y;
+    sux::bits::EliasFano<> last_y;
+    //sdsl::sd_vector<> last_y;
+    //sdsl::select_support_sd<> select_last_y;
 
     //sdsl::vlc_vector<> last_y;
 
@@ -54,7 +53,7 @@ public:
 
     CompressedPLA() = default;
 
-    explicit CompressedPLA(const std::vector<Y> &data) {
+    explicit CompressedPLA(const std::vector<Y> &data, const uint64_t epsilon) {
         if(data.size() == 0) [[unlikely]]
             return;
 
@@ -62,12 +61,12 @@ public:
         const Y u = data.back(); // the sequence is increasing
 
         std::vector<segment> segments;
-        segments.reserve(n / (Epsilon * Epsilon));
+        segments.reserve(n / (epsilon * epsilon));
 
         auto in_fun = [data](auto i) { return std::pair<X,Y>(i, data[i]); };
         auto out_fun = [&segments](auto cs) { segments.emplace_back(cs); };
 
-        n_segments = make_segmentation_par(n, Epsilon, in_fun, out_fun);
+        n_segments = make_segmentation_par(n, epsilon, in_fun, out_fun);
 
         sdsl::bit_vector bv_x(n + 1, 0);
 
@@ -124,13 +123,13 @@ public:
         sdsl::util::init_support(rank_x, &x);
 		sdsl::util::init_support(select_x, &x);
 
-        //y = sux::bits::EliasFano<>(tmp_y, tmp_y.back() + 1);
-        y = sdsl::sd_vector<>(tmp_y.begin(), tmp_y.end());
-        sdsl::util::init_support(select_y, &y);
+        y = sux::bits::EliasFano<>(tmp_y, tmp_y.back() + 1);
+        //y = sdsl::sd_vector<>(tmp_y.begin(), tmp_y.end());
+        //sdsl::util::init_support(select_y, &y);
 
-        //last_y = sux::bits::EliasFano<>(tmp_last_y, tmp_last_y.back() + 1);
-        last_y = sdsl::sd_vector<>(tmp_last_y.begin(), tmp_last_y.end());
-        sdsl::util::init_support(select_last_y, &last_y);
+        last_y = sux::bits::EliasFano<>(tmp_last_y, tmp_last_y.back() + 1);
+        //last_y = sdsl::sd_vector<>(tmp_last_y.begin(), tmp_last_y.end());
+        //sdsl::util::init_support(select_last_y, &last_y);
     }
 
     /**
@@ -145,9 +144,11 @@ public:
     [[nodiscard]] Y predict(const X x) {
         uint64_t i = rank_x.rank(x);
         X x_i = select_x(i + 1);
-        Y y_i = select_y(i + 1);
+        //Y y_i = select_y(i + 1);
+        Y y_i = y.select(i);
         X x_ii = select_x(i + 2);
-        Y y_pi = select_last_y(i + 1);
+        //Y y_pi = select_last_y(i + 1);
+        Y y_pi = last_y.select(i + 1);
         uint64_t beta_i = y_i + (betas[i] - beta_shift);
         uint64_t gamma_i = y_pi + (gammas[i] - gamma_shift);
         return Y(double(x - x_i) * double(gamma_i - beta_i) / double(x_ii - x_i)) + beta_i;
@@ -157,10 +158,10 @@ public:
      * @return the size in bits of the data structure
      */
     size_t size() {
-        return //y.bitCount() + last_y.bitCount() + 
+        return y.bitCount() + last_y.bitCount() + 
                 (sdsl::size_in_bytes(x) + sdsl::size_in_bytes(rank_x) + sdsl::size_in_bytes(select_x)
-                + sdsl::size_in_bytes(y) + sdsl::size_in_bytes(select_y)
-                + sdsl::size_in_bytes(last_y) + sdsl::size_in_bytes(select_last_y)
+                //+ sdsl::size_in_bytes(y) + sdsl::size_in_bytes(select_y)
+                //+ sdsl::size_in_bytes(last_y) + sdsl::size_in_bytes(select_last_y)
                 + sdsl::size_in_bytes(betas)
                 + sdsl::size_in_bytes(gammas)
                 + sizeof(n_segments)) * CHAR_BIT;
@@ -171,10 +172,10 @@ public:
      */
     std::map<std::string, size_t> components_size() {
         std::map<std::string, size_t> components;
-        //components["first_y"] = y.bitCount();
-        components["first_y"] = (sdsl::size_in_bytes(y) + sdsl::size_in_bytes(select_y)) * CHAR_BIT;
-        components["last_y"] = (sdsl::size_in_bytes(last_y) + sdsl::size_in_bytes(select_last_y)) * CHAR_BIT;
-        //components["last_y"] = last_y.bitCount();
+        components["first_y"] = y.bitCount();
+        //components["first_y"] = (sdsl::size_in_bytes(y) + sdsl::size_in_bytes(select_y)) * CHAR_BIT;
+        //components["last_y"] = (sdsl::size_in_bytes(last_y) + sdsl::size_in_bytes(select_last_y)) * CHAR_BIT;
+        components["last_y"] = last_y.bitCount();
         components["first_x"] = (sdsl::size_in_bytes(x) + sdsl::size_in_bytes(rank_x) +
                                      sdsl::size_in_bytes(select_x)) * CHAR_BIT;
         components["betas"] = sdsl::size_in_bytes(betas) * CHAR_BIT;

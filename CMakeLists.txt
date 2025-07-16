@@ -24,3 +24,6 @@ target_link_libraries(pla-compressor INTERFACE OpenMP::OpenMP_CXX)
 
 add_executable(example example.cpp)
 target_link_libraries(example PRIVATE pla-compressor)
+
+add_executable(benchmark benchmark.cpp)
+target_link_libraries(benchmark PRIVATE pla-compressor)
