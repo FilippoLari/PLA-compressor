@@ -14,7 +14,7 @@
 #include "huffman_vector.hpp"
 
 template<typename Floating = float, bool AllPositive = true, 
-         bool AllNegative = false>
+         bool AllNegative = false, class compressed_seq>
 class float_vector
 {
     static_assert(std::is_floating_point_v<Floating>,
@@ -42,80 +42,36 @@ class float_vector
 
     sdsl::bit_vector signs;
 
-    sdsl::int_vector<> mantissae;
-    sdsl::int_vector<> mantissa_mapping;
+    compressed_seq mantissae;
 
-    sdsl::int_vector<> exponents;
-    sdsl::int_vector<> exponent_mapping;
+    compressed_seq exponents;
 
 public:
     
     float_vector() = default;
 
-    explicit float_vector(const std::vector<Floating> &slopes) {
-        if(slopes.size() == 0) [[unlikely]]
+    explicit float_vector(const std::vector<Floating> &data) {
+        if(data.size() == 0) [[unlikely]]
             return;
         
         if constexpr (DifferentSigns)
-            signs = sdsl::bit_vector(slopes.size(), 0);
+            signs = sdsl::bit_vector(data.size(), 0);
 
-        mantissa_mapping = sdsl::int_vector<>(slopes.size());
-        std::unordered_map<UInt, uint64_t> mantissa_dict;
-        std::vector<UInt> tmp_mantissae;
+        std::vector<UInt> tmp_mantissae(data.size());
+        std::vector<uint32_t> tmp_exponents(data.size());
 
-        exponent_mapping = sdsl::int_vector<>(slopes.size());
-        std::unordered_map<UInt, uint64_t> exponent_dict;
-        std::vector<uint32_t> tmp_exponents;
+        for(uint64_t i = 0; i < data.size(); ++i) {
+            const auto [sign, exponent, mantissa] = get_components(data[i]);
 
-        for(uint64_t i = 0; i < slopes.size(); ++i) {
-            const auto [sign, exponent, mantissa] = get_components(slopes[i]);
-
-            if(mantissa_dict.count(mantissa) == 0) {
-                mantissa_dict[mantissa] = tmp_mantissae.size();
-                tmp_mantissae.push_back(mantissa);
-            }
-            
-            mantissa_mapping[i] = mantissa_dict[mantissa];
-
-            if(exponent_dict.count(exponent) == 0) {
-                exponent_dict[exponent] = tmp_exponents.size();
-                tmp_exponents.push_back(exponent);
-            }
-            
-            exponent_mapping[i] = exponent_dict[exponent];
+            tmp_mantissae[i] = mantissa;
+            tmp_exponents[i] = exponent;
 
             if constexpr (DifferentSigns)
                 signs[i] = (sign > 0) ? 1 : 0;
         }
 
-        sdsl::util::bit_compress(mantissa_mapping);
-
-        mantissae = sdsl::int_vector<>(tmp_mantissae.size());
-        std::copy(tmp_mantissae.begin(), tmp_mantissae.end(), mantissae.begin());
-        sdsl::util::bit_compress(mantissae);
-
-        sdsl::util::bit_compress(exponent_mapping);
-
-        exponents = sdsl::int_vector<>(tmp_exponents.size());
-        std::copy(tmp_exponents.begin(), tmp_exponents.end(), exponents.begin());
-        sdsl::util::bit_compress(exponents);
-
-        std::vector<uint32_t> tmp_m;
-        std::vector<uint32_t> tmp_e;
-        for(const auto &slope : slopes) {
-            const auto [s, e, mantissa] = get_components(slope);
-            tmp_m.push_back(mantissa);
-            tmp_e.push_back(e);
-        }
-        huffman_vector<uint32_t> hv_m(tmp_m);
-        huffman_vector<uint32_t> hv_e(tmp_e);
-
-        std::cout << double(hv_m.size()) / double(slopes.size()) << std::endl;
-        std::cout << double(hv_e.size()) / double(slopes.size()) << std::endl;
-
-        /*std::cout << "Slopes: " << slopes.size() << std::endl;
-        std::cout << "Unique mantissae: " << mantissae.size() << std::endl;
-        std::cout << "Unique exponents: " << exponents.size() << std::endl;*/
+        mantissae = compressed_seq(tmp_mantissae);
+        exponents = compressed_seq(tmp_exponents);
     }
 
     inline Floating access(size_t i) const {
@@ -123,8 +79,8 @@ public:
     }
 
     const Floating operator[](size_t i) const {
-        UInt mantissa = mantissae[mantissa_mapping[i]];
-        uint32_t exponent = exponents[exponent_mapping[i]];
+        UInt mantissa = mantissae[i];
+        uint32_t exponent = exponents[i];
         constexpr uint8_t default_sign = AllNegative ? 1 : 0;
         uint8_t sign = (DifferentSigns) ? signs[i] : default_sign;
         
@@ -139,10 +95,10 @@ public:
         return result;
     }
 
-    uint64_t size() const {
+    inline uint64_t size() const {
         return (signs.bit_size() +
-                sdsl::size_in_bytes(mantissae) + sdsl::size_in_bytes(mantissa_mapping) +
-                sdsl::size_in_bytes(exponents) + sdsl::size_in_bytes(exponent_mapping)) * CHAR_BIT;
+                mantissae.size() +
+                exponents.size()) * CHAR_BIT;
     }
 
 private:
@@ -162,3 +118,7 @@ private:
     }
 
 };
+
+using huff_float_vector = float_vector<float, true, false, huffman_vector<uint32_t, 64>>;
+
+using dist_float_vector = float_vector<float, true, false, dist_vector<>>;
