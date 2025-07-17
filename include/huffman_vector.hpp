@@ -94,6 +94,20 @@ public:
     }
 };
 
+/**
+ * A sequence of Huffman coded integers supporting random
+ * access without decompressing the whole sequence.
+ * 
+ * Assuming dens is set to Omega(log(n)) the following
+ * are the space and time complexities:
+ * 
+ * Space: n(H+2+o(1)) + |S|log|S| + O(log^2(n)) bits.
+ *      - H is the zero-order empirical entropy of the sequence.
+ *      - |S| is the alphabet size.
+ *      - n is the sequence length.
+ * 
+ * Access time: O(log(n)loglog(n)) 
+ */
 template<typename T, uint32_t dens = 128>
 class huffman_vector {
 
@@ -173,23 +187,14 @@ public:
             const uint64_t code = codes[symbol_index];
             const uint64_t len = symbols_to_code_lenghts[symbol_index].second;
 
-            for(uint64_t i = 0; i < len; ++i) // notice: from lsb to msb
-                code_sequence[offset + i] = (code & (1UL << i))? 1 : 0;
-
-            offset += len;
+            for(int64_t i = len - 1; i >=0; --i, ++offset)
+                code_sequence[offset] = (code & (1UL << i))? 1 : 0;
         }
 
         // todo: fix this
         if(*sample_pointers.end() == 0) sample_pointers.resize(sample_pointers.size() - 1);
 
         sdsl::util::bit_compress(sample_pointers);
-
-        /*for(uint64_t i = 0; i < code_sequence.size(); ++i)
-            std::cout << code_sequence[i];
-        std::cout << std::endl;
-
-        for(uint64_t i = 0; i< sample_pointers.size(); ++i)
-            std::cout << "sample pos: " << sample_pointers[i] << std::endl;*/
 
         first_index = sdsl::int_vector<>(maximum_code_length + 1, alphabet_size);
         first_code = sdsl::int_vector<>(maximum_code_length + 1);
@@ -224,18 +229,12 @@ public:
         uint64_t curr_pos = sample_pointers[sample_pos];
         uint64_t len;
 
-        //std::cout << "curr pos: " << curr_pos << " sample pos: " << sample_pos << std::endl;
-
         for(uint64_t j = sample_pos * dens; j <= i; ++j) {
             len = get_code_length(curr_pos);
             curr_pos += len;
-            //std::cout << "len: " << len << " curr pos: " << curr_pos << std::endl;
         }
 
-        //std::cout << "i: " << i << std::endl;
-        //std::cout << "len: " << len << " off: " << curr_pos - len << std::endl;
-
-        const uint64_t code = code_sequence.get_int(curr_pos - len, len);
+        const uint64_t code = read_reverse(curr_pos - len, len);
 
         return decode(len, code);
     }
@@ -254,8 +253,8 @@ private:
     }
 
     uint64_t get_code_length(const uint64_t i) const {
-        uint64_t next = code_sequence.get_int(i, maximum_code_length);
-        int l = 0, r = maximum_code_length + 1;
+        uint64_t next = read_reverse(i, maximum_code_length);
+        int l = 1, r = maximum_code_length + 1;
         int m;
         while (r - l > 1) {
             m = (l + r) / 2;
@@ -266,5 +265,16 @@ private:
             }
         }
         return l;
+    }
+
+    inline uint64_t read_reverse(uint64_t i, uint64_t len) const {
+        uint64_t x = code_sequence.get_int(i, len);
+        x = ((x >> 1) & 0x5555555555555555ULL) | ((x & 0x5555555555555555ULL) << 1);
+        x = ((x >> 2) & 0x3333333333333333ULL) | ((x & 0x3333333333333333ULL) << 2);
+        x = ((x >> 4) & 0x0F0F0F0F0F0F0F0FULL) | ((x & 0x0F0F0F0F0F0F0F0FULL) << 4);
+        x = ((x >> 8) & 0x00FF00FF00FF00FFULL) | ((x & 0x00FF00FF00FF00FFULL) << 8);
+        x = ((x >> 16) & 0x0000FFFF0000FFFFULL) | ((x & 0x0000FFFF0000FFFFULL) << 16);
+        x = (x >> 32) | (x << 32);
+        return x >> (64 - len);
     }
 };
