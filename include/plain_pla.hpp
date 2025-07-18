@@ -40,7 +40,11 @@ public:
         for(const auto &s : segments)
             slopes.push_back(s.slope);
 
-        float_vector<float> fv(slopes);
+        huff_float_vector fv(slopes);
+
+        for(uint64_t i = 0; i < slopes.size(); ++i)
+            assert(fv[i] == slopes[i]);
+
         std::cout << "bps: " << double(fv.size()) / double(slopes.size()) << std::endl;
     }
 

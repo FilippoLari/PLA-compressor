@@ -9,7 +9,9 @@
 /**
  * A compressed sequence storing only the distinct
  * elements plus an additional array to perform 
- * random access.
+ * random access. If t is very small, the space usage
+ * is comparable with huffman coding, but the access time
+ * is an order of magnitude faster.
  * 
  * Space: nlog(t) + tlog(|S|)
  *      - n is the sequence length
@@ -40,7 +42,7 @@ public:
                 tmp_distinct.push_back(data[i]);
             }
             
-            index_mapping[i] = dictionary[mantissa];
+            index_mapping[i] = dictionary[data[i]];
         }
 
         sdsl::util::bit_compress(index_mapping);

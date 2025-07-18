@@ -12,9 +12,10 @@
 #include "sdsl/util.hpp"
 
 #include "huffman_vector.hpp"
+#include "dist_vector.hpp"
 
-template<typename Floating = float, bool AllPositive = true, 
-         bool AllNegative = false, class compressed_seq>
+template<class compressed_seq, typename Floating = float,
+         bool AllPositive = true, bool AllNegative = false>
 class float_vector
 {
     static_assert(std::is_floating_point_v<Floating>,
@@ -96,9 +97,7 @@ public:
     }
 
     inline uint64_t size() const {
-        return (signs.bit_size() +
-                mantissae.size() +
-                exponents.size()) * CHAR_BIT;
+        return signs.bit_size() + mantissae.size() + exponents.size();
     }
 
 private:
@@ -119,6 +118,6 @@ private:
 
 };
 
-using huff_float_vector = float_vector<float, true, false, huffman_vector<uint32_t, 64>>;
+using huff_float_vector = float_vector<huffman_vector<uint32_t, 64>, float, true, false>;
 
-using dist_float_vector = float_vector<float, true, false, dist_vector<>>;
+using dist_float_vector = float_vector<dist_vector<uint32_t>, float, true, false>;

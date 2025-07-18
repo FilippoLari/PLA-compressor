@@ -1,12 +1,14 @@
 #include <iostream>
-#include <chrono>
+#include <random>
 
 //#include "compressed_pla.hpp"
 #include "plain_pla.hpp"
-#include "huffman_vector.hpp"
+
+#include "slope_compressed_pla.hpp"
+#include "float_vector.hpp"
 
 int main(void) {
-    const uint64_t epsilon = 128;
+    const uint64_t epsilon = 64;
 
     std::vector<uint64_t> data(10000000);
 
@@ -14,7 +16,9 @@ int main(void) {
     
     std::sort(data.begin(), data.end());
 
-    PlainPLA<uint64_t, uint64_t, float> pla(data, epsilon);
+    SlopeCompressedPLA<uint64_t, uint64_t, float, huff_float_vector> pla(data, epsilon);
+
+    std::cout << data[15000] << " " << pla.predict(15000) << std::endl;
     
     /*CompressedPLA<uint64_t, uint64_t> cpla(data, epsilon);
 

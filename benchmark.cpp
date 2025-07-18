@@ -3,6 +3,7 @@
 #include <chrono>
 #include <random>
 
+#include "slope_compressed_pla.hpp"
 #include "compressed_pla.hpp"
 #include "index_reader.hpp"
 #include "plain_pla.hpp"
@@ -61,17 +62,19 @@ int main(int argc, char *argv[]) {
 
     std::vector<uint32_t> queries = generate_uniform_queries<uint32_t>(15000, data.size());
 
+    SlopeCompressedPLA<uint32_t, uint32_t, float, dist_float_vector> scpla(data, epsilon);
+
+    std::cout << dataset_name << "," << epsilon <<  ",scpla," << scpla.size() << 
+                "," << scpla.bps() << "," << measure_predict_time<decltype(scpla), uint32_t, uint32_t>(scpla, queries) << std::endl;
+
     CompressedPLA<uint32_t, uint32_t> cpla(data, epsilon);
 
-    const uint64_t nseg = (1.0 / cpla.bps()) * double(cpla.size()); 
-    const uint32_t u = data.back();
-    const uint32_t n = data.size();
-    const auto lb = (nseg - 1) * log2(double(n - nseg -1) / double(nseg - 1)) + nseg * log2(double(u - nseg) / double(nseg)) + nseg * log2(2*(epsilon + 1));
-
-    std::cout << dataset_name << "," << epsilon <<  ",lb," << uint64_t(lb) << 
-                "," << lb / double(nseg) << "," << 0 << std::endl;
+    std::cout << dataset_name << "," << epsilon <<  ",cpla," << cpla.size() << 
+                "," << cpla.bps() << "," << measure_predict_time<decltype(cpla), uint32_t, uint32_t>(cpla, queries) << std::endl;
 
     /*PlainPLA<uint32_t, uint32_t, float> pla(data, epsilon);
+
+    CompressedPLA<uint32_t, uint32_t> cpla(data, epsilon);
 
     std::cout << dataset_name << "," << epsilon <<  ",cpla," << cpla.size() << 
                 "," << cpla.bps() << "," << measure_predict_time<decltype(cpla), uint32_t, uint32_t>(cpla, queries) << std::endl;
