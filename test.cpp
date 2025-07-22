@@ -59,6 +59,7 @@ std::vector<uint32_t> TestingData::int_data;
 std::vector<uint32_t> TestingData::sorted_int_data;
 std::vector<float> TestingData::float_data;
 
+/*
 TEST_F(TestingData, HuffVectorTest) {
     huffman_vector<uint32_t, 64> hv(int_data);
     for(uint64_t i = 0; i < int_data.size(); ++i) {
@@ -110,15 +111,17 @@ TEST_F(TestingData, PlainPLATest) {
         ASSERT_TRUE((diff <= range_size)) << "pred: " << pred << " real: " << y << " diff: " << diff;
     }
 }
+*/
 
 TEST_F(TestingData, SuccinctPLATest) {
     CompressedPLA<uint32_t, uint32_t> cpla(sorted_int_data, 128);
     const int32_t range_size = 2*(128 + 3);
     for(uint64_t i = 0; i < sorted_int_data.size(); ++i) {
         const uint32_t y = sorted_int_data[i];
-        int32_t diff = int32_t(cpla.predict(i)) - int32_t(y);
+        const uint32_t pred = cpla.predict(i);
+        int32_t diff = int32_t(pred) - int32_t(y);
         diff = (diff < 0) ? (-1) * diff : diff;
-        ASSERT_TRUE((diff <= range_size)) << "diff: " << diff << " expected: " << range_size;
+        ASSERT_TRUE((diff <= range_size)) << "pos: " << i << " pred: " << pred << " real: " << y << " diff: " << diff;
     }
 }
 

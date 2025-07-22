@@ -67,10 +67,10 @@ int main(int argc, char *argv[]) {
     std::cout << dataset_name << "," << epsilon <<  ",scpla," << scpla.size() << 
                 "," << scpla.bps() << "," << measure_predict_time<decltype(scpla), uint32_t, uint32_t>(scpla, queries) << std::endl;
 
-    CompressedPLA<uint32_t, uint32_t> cpla(data, epsilon);
+    PlainPLA<uint32_t, uint32_t, float> pla(data, epsilon);
 
-    std::cout << dataset_name << "," << epsilon <<  ",cpla," << cpla.size() << 
-                "," << cpla.bps() << "," << measure_predict_time<decltype(cpla), uint32_t, uint32_t>(cpla, queries) << std::endl;
+    std::cout << dataset_name << "," << epsilon << ",pla," << pla.size() << 
+                "," << pla.bps() << "," << measure_predict_time<decltype(pla), uint32_t, uint32_t>(pla, queries) << std::endl;
 
     /*PlainPLA<uint32_t, uint32_t, float> pla(data, epsilon);
 

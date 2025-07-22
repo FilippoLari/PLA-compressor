@@ -7,6 +7,7 @@
 
 #include "piecewise_linear_model.hpp"
 #include "float_vector.hpp"
+#include "rle_vector.hpp"
 
 #include "sdsl/sd_vector.hpp"
 #include "sdsl/int_vector.hpp"
@@ -29,6 +30,7 @@ class SlopeCompressedPLA {
     sux::bits::EliasFano<> y;
 
     sdsl::int_vector<> betas;
+    //rle_vector<Y> betas;
     int64_t beta_shift;
 
     slope_container slopes;
@@ -86,6 +88,9 @@ public:
         y = sux::bits::EliasFano<>(tmp_y, tmp_y.back() + 1);
 
         betas = build_packed_vector(tmp_beta, beta_shift);
+        //build_packed_vector(tmp_beta, beta_shift);
+
+        //betas = rle_vector<Y>(tmp_beta);
     }
 
     [[nodiscard]] Y predict(const X &x) {
@@ -95,7 +100,7 @@ public:
         Y y_i = y.select(i - 1);
         int64_t beta_i = static_cast<int64_t>(y_i) 
                             - (static_cast<int64_t>(betas[i - 1]) + beta_shift);
-        
+
         if constexpr (std::is_same_v<X, int64_t> || std::is_same_v<X, int32_t>)
             return static_cast<uint64_t>(static_cast<double>(std::make_unsigned<X>(x) - x_i) * slope_i) + beta_i;
         else
@@ -104,8 +109,9 @@ public:
 
     inline size_t size() {
         return (sdsl::size_in_bytes(x) + sdsl::size_in_bytes(rank_x) + sdsl::size_in_bytes(select_x)
-                + sdsl::size_in_bytes(betas)
+                //+ sdsl::size_in_bytes(betas)
                 + sizeof(beta_shift)) * CHAR_BIT
+                + betas.size()
                 + y.bitCount()
                 + slopes.size();
     }

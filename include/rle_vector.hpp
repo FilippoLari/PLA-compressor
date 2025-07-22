@@ -59,7 +59,7 @@ public:
     rle_vector& operator=(const rle_vector &rlv) {
         run_heads = rlv.run_heads;
         run_start = rlv.run_start;
-        rank_run_start = rlv.rank_run_start;
+        sdsl::util::init_support(rank_run_start, &run_start);
         return *this;
     }
 
