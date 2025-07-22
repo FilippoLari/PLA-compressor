@@ -27,3 +27,7 @@ target_link_libraries(example PRIVATE pla-compressor)
 
 add_executable(benchmark benchmark.cpp)
 target_link_libraries(benchmark PRIVATE pla-compressor)
+
+add_subdirectory(libs/googletest)
+add_executable(test test.cpp)
+target_link_libraries(test PRIVATE gtest pla-compressor)

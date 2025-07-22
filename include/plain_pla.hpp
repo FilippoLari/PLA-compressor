@@ -35,17 +35,6 @@ public:
         auto out_fun = [&](auto cs) { segments.emplace_back(cs); };
 
         make_segmentation_par(n, epsilon, in_fun, out_fun);
-
-        std::vector<float> slopes;
-        for(const auto &s : segments)
-            slopes.push_back(s.slope);
-
-        huff_float_vector fv(slopes);
-
-        for(uint64_t i = 0; i < slopes.size(); ++i)
-            assert(fv[i] == slopes[i]);
-
-        std::cout << "bps: " << double(fv.size()) / double(slopes.size()) << std::endl;
     }
 
     [[nodiscard]] Y predict(const X &v) const {
