@@ -98,7 +98,7 @@ public:
  * A sequence of Huffman coded integers supporting random
  * access without decompressing the whole sequence.
  * 
- * Assuming dens is set to Omega(log(n)) the following
+ * Assuming dens is set to log(n) the following
  * are the space and time complexities:
  * 
  * Space: n(H+2+o(1)) + |S|log|S| + O(log^2(n)) bits.

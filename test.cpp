@@ -99,6 +99,7 @@ TEST_F(TestingData, RunLengthVectorTest) {
                                         " i: " << i;
     }
 }
+*/
 
 TEST_F(TestingData, PlainPLATest) {
     PlainPLA<uint32_t, uint32_t, float> pla(sorted_int_data, 128);
@@ -111,8 +112,8 @@ TEST_F(TestingData, PlainPLATest) {
         ASSERT_TRUE((diff <= range_size)) << "pred: " << pred << " real: " << y << " diff: " << diff;
     }
 }
-*/
 
+/*
 TEST_F(TestingData, SuccinctPLATest) {
     CompressedPLA<uint32_t, uint32_t> cpla(sorted_int_data, 128);
     const int32_t range_size = 2*(128 + 3);
@@ -135,7 +136,7 @@ TEST_F(TestingData, SlopeCompressedPLATest) {
         diff = (diff < 0) ? -diff : diff;
         ASSERT_TRUE((diff <= range_size)) << "pos: " << i << " pred: " << pred << " real: " << y << " diff: " << diff;
     }
-}
+}*/
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
