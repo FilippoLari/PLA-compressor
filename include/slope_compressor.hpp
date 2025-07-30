@@ -1,13 +1,13 @@
 #pragma once
 
-#include <unordered_map>
 #include <type_traits>
+#include <cassert>
+#include <cstring>
 #include <optional>
 #include <cstdint>
 #include <climits>
 #include <vector>
 #include <tuple>
-#include <set>
 #include <bit>
 #include <iostream>
 
@@ -32,13 +32,33 @@ class slope_compressor {
     struct merged_range {
         uint32_t m_a;
         uint32_t m_b;
-        uint64_t freq;
+
+        // keep track of the original slope indexes and
+        // the original exponenets of the intersected ranges
+        std::vector<size_t> indexes;
+        std::vector<uint32_t> exponents;
+
+        merged_range() = default;
+
+        merged_range(merged_range&& other) noexcept = default; 
         
-        merged_range(uint32_t m_a, uint32_t m_b, uint64_t freq) : m_a(m_a), m_b(m_b), freq(freq) {}
+        merged_range& operator=(merged_range&& other) noexcept = default;
+        
+        merged_range(uint32_t m_a, uint32_t m_b, uint32_t exp, size_t i) : m_a(m_a), m_b(m_b) {
+            exponents.push_back(exp);
+            indexes.push_back(i);
+        }
+
+        inline void update(const uint32_t new_m_a, const uint32_t new_m_b, const uint32_t curr_exp, const size_t i) {
+            m_a = new_m_a;
+            m_b = new_m_b;
+            indexes.push_back(i);
+            exponents.push_back(curr_exp);
+        }
 
         bool operator<(const merged_range& mr) const {
-            if (freq != mr.freq)
-                return freq > mr.freq;
+            if (indexes.size() != mr.indexes.size())
+                return indexes.size() > mr.indexes.size();
             else
                 return m_a < mr.m_a;
         }
@@ -61,64 +81,114 @@ public:
         for (uint64_t i = 0; i < slope_ranges.size(); ++i) {
             const auto& [a, b] = slope_ranges[i];
 
+            if(a < 0 || b < 0) { // fix later
+                continue;
+            }
+            assert(a >= 0 && b >= 0);
+
             auto [sign_a, exp_a, mant_a] = get_components(a);
             auto [sign_b, exp_b, mant_b] = get_components(b);
 
-            assert(sign_a >= 0 && sign_b >= 0); // only positive values
-
             range r(exp_a, mant_a, exp_b, mant_b, i);
 
-            if (exp_a == exp_b)
+            if (exp_a == exp_b) {
                 eq_exp_ranges.push_back(r);
-            else if (exp_b > exp_a + 1 || mant_b >= mant_a)
+                assert(mant_a <= mant_b);
+            } else if (exp_b > exp_a + 1 || mant_b >= mant_a)
                 jolly_ranges.push_back(r);
             else
                 to_merge.push_back(r);
         }
 
-        // sort ranges by mantissa for sweep-line merging
+        // sort ranges by starting value of the mantissa for sweep-line merging
         std::sort(eq_exp_ranges.begin(), eq_exp_ranges.end());
 
         std::vector<merged_range> eq_exp_merged;
 
-        uint32_t curr_min = eq_exp_ranges[0].m_a;
-        uint32_t curr_max = eq_exp_ranges[0].m_b;
-        uint64_t curr_freq = 1, first_idx = 0;
+        merged_range curr_intersect(eq_exp_ranges[0].m_a,
+                                     eq_exp_ranges[0].m_b,
+                                     eq_exp_ranges[0].e_a, // notice exp_a = exp_b
+                                     eq_exp_ranges[0].idx); 
 
-        auto finalize_group = [&](uint64_t end_idx) {
-            for (uint64_t k = first_idx; k < end_idx; ++k) {
-                slopes[eq_exp_ranges[k].idx] =
-                    build_float(0, eq_exp_ranges[k].e_a, curr_min);
-            }
-            eq_exp_merged.emplace_back(curr_min, curr_max, curr_freq);
-        };
-
-        for (uint64_t i = 1; i < eq_exp_ranges.size(); ++i) {
+        for(size_t i = 1; i < eq_exp_ranges.size(); ++i) {
             const uint32_t range_min = eq_exp_ranges[i].m_a;
             const uint32_t range_max = eq_exp_ranges[i].m_b;
+            const uint32_t range_exp = eq_exp_ranges[i].e_a; // notice exp_a = exp_b
+            const size_t range_idx = eq_exp_ranges[i].idx;
 
-            if (range_min > curr_max) {
-                finalize_group(i);
-                curr_min  = range_min;
-                curr_max  = range_max;
-                curr_freq = 1;
-                first_idx = i;
+            if (range_min > curr_intersect.m_b) {
+                eq_exp_merged.push_back(std::move(curr_intersect));
+                curr_intersect = merged_range(range_min, range_max,
+                                                 range_exp, range_idx);
             } 
             else {
-                curr_min = std::max(curr_min, range_min);
-                curr_max = std::min(curr_max, range_max);
-                ++curr_freq;
+                curr_intersect.update(std::max(curr_intersect.m_a, range_min),
+                                        std::min(curr_intersect.m_b, range_max),
+                                        range_exp, range_idx);
             }
         }
 
-        finalize_group(eq_exp_ranges.size());
+        eq_exp_merged.push_back(std::move(curr_intersect));
+
+        // iteratively assign the non-jolly ranges to the
+        // intersection covering the most ranges.
+        // use a sorted array because updates should be infrequent
+        std::sort(eq_exp_merged.begin(), eq_exp_merged.end());
+
+        auto update_range = [&](auto it, uint32_t new_m_a, uint32_t new_m_b, uint32_t new_exp, size_t idx) {
+            merged_range updated = std::move(*it);
+            eq_exp_merged.erase(it);
+
+            updated.update(new_m_a, new_m_b, new_exp, idx);
+
+            auto pos = std::lower_bound(eq_exp_merged.begin(), eq_exp_merged.end(), updated);
+
+            eq_exp_merged.insert(pos, std::move(updated));
+        };
+
+        for(const range &range_to_merge : to_merge) {
+            bool merged = false;
+
+            for(auto it = eq_exp_merged.begin(); it != eq_exp_merged.end(); ++it) {
+                const merged_range& curr_intersection = *it;
+
+                if(auto first_intersect = intersect(
+                        range_to_merge.m_a, std::numeric_limits<uint32_t>::max(),
+                        curr_intersection.m_a, curr_intersection.m_b)) {
+
+                    auto [a, b] = *first_intersect;
+                    update_range(it, a, b, range_to_merge.e_a, range_to_merge.idx);
+                    merged = true;
+                    break;
+                } else if(auto second_intersect = intersect(
+                        0, range_to_merge.m_b,
+                        curr_intersection.m_a, curr_intersection.m_b)) {
+
+                    auto [a, b] = *second_intersect;
+                    update_range(it, a, b, range_to_merge.e_b, range_to_merge.idx);
+                    merged = true;
+                    break;
+                }
+            }
+
+            if(!merged) std::cout << "not merged" << std::endl;
+        }
+
+        // finalize the assignment
+        for(const auto &intersection : eq_exp_merged) {
+            assert(intersection.indexes.size() == intersection.exponents.size());
+            const uint32_t mant = intersection.m_a;
+            for(size_t i = 0; i < intersection.indexes.size(); ++i) {
+                const size_t idx = intersection.indexes[i];
+                const uint32_t exp = intersection.exponents[i];
+                slopes[idx] = build_float(0, exp, mant);
+            }
+        }
 
         // assign the mantissae of jolly ranges to the most frequent
         // mantissa of the merged ranges with equal exponent
-        std::sort(eq_exp_merged.begin(), eq_exp_merged.end());
 
-        uint32_t most_freq_mant = eq_exp_merged[0].m_a;
-        eq_exp_merged[0].freq += jolly_ranges.size();
+        uint32_t most_freq_mant = eq_exp_merged.begin()->m_a;
 
         for(const auto& range : jolly_ranges) {
             uint32_t exponent;
@@ -134,51 +204,9 @@ public:
             slopes[range.idx] = build_float(0, exponent, most_freq_mant);
         }
 
-        std::multiset<merged_range> freq_sorted_ranges(eq_exp_merged.begin(), eq_exp_merged.end());
-        uint32_t freq = freq_sorted_ranges.begin()->freq;
-
-        std::cout << "most frequent: " << freq << std::endl;
-
-        auto update_range = [&](auto it, uint32_t new_m_a, uint32_t new_m_b) {
-            merged_range updated = *it;
-            updated.m_a = new_m_a;
-            updated.m_b = new_m_b;
-            ++updated.freq;
-
-            freq_sorted_ranges.erase(it);
-            freq_sorted_ranges.insert(updated);
-        };
-
-        for (const range& range_to_merge : to_merge) {
-            bool merged = false;
-
-            for (auto it = freq_sorted_ranges.begin(); it != freq_sorted_ranges.end(); ++it) {
-                const merged_range& existing_range = *it;
-
-                if (auto first_intersect = intersect(
-                        range_to_merge.m_a, std::numeric_limits<uint32_t>::max(),
-                        existing_range.m_a, existing_range.m_b)) {
-
-                    auto [a, b] = *first_intersect;
-                    update_range(it, a, b);
-                    merged = true;
-                    break;
-                }
-
-                if (auto second_intersect = intersect(
-                        0, range_to_merge.m_b,
-                        existing_range.m_a, existing_range.m_b)) {
-
-                    auto [a, b] = *second_intersect;
-                    update_range(it, a, b);
-                    merged = true;
-                    break;
-                }
-            }
-
-            if (!merged)
-                freq_sorted_ranges.insert(merged_range(range_to_merge.m_a, range_to_merge.m_b, 1));
-        }
+        // sanity check
+        for(size_t i = 0; i < slopes.size(); ++i)
+            assert(slopes[i] >= slope_ranges[i].first && slopes[i] <= slope_ranges[i].second);
 
         return slopes;
     }
