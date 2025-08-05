@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "piecewise_linear_model.hpp"
+#include "slope_compressor.hpp"
 #include "float_vector.hpp"
 #include "rle_vector.hpp"
 
@@ -49,41 +50,61 @@ public:
 
         const uint64_t expected_segments = n / (epsilon * epsilon);
         
-        std::vector<Floating> tmp_slopes;
+        std::vector<std::pair<Floating, Floating>> slope_ranges;
+        //std::vector<Floating> tmp_slopes;
         std::vector<int64_t> tmp_beta;
         std::vector<uint64_t> tmp_y; // todo: fix uint64_t
 
         // n + 1 positions allows us to avoid an if at query time
         sdsl::bit_vector bv_x(n + 1, 0);
 
-        tmp_slopes.reserve(expected_segments);
+        //tmp_slopes.reserve(expected_segments);
         tmp_beta.reserve(expected_segments);
         tmp_y.reserve(expected_segments);
 
         beta_shift = std::numeric_limits<int64_t>::max();
 
+        std::vector<std::pair<long double, long double>> xy_pairs;
+
         auto in_fun = [data](auto i) { return std::pair<X,Y>(i, data[i]); };
         auto out_fun = [&](auto cs) { 
             const X x = cs.get_first_x();
-            const auto [slope, beta, _] = cs.get_floating_point_segment(x, 0); 
+            //const auto [slope, beta, _] = cs.get_floating_point_segment(x, 0); 
             const Y y = data[x];
-            const int64_t delta = int64_t(y) - int64_t(beta);
-            beta_shift = (delta < beta_shift) ? delta : beta_shift;
-            tmp_slopes.push_back(slope); 
-            tmp_beta.push_back(delta);
+            //const int64_t delta = int64_t(y) - int64_t(beta);
+            //beta_shift = (delta < beta_shift) ? delta : beta_shift;
+            slope_ranges.push_back(cs.get_slope_range());
+            //tmp_slopes.push_back(slope); 
+            //tmp_beta.push_back(delta);
             tmp_y.push_back(y);
             bv_x[x] = 1;
+
+            xy_pairs.push_back(cs.get_intersection());
         };
 
         make_segmentation_par(n, epsilon, in_fun, out_fun);
 
-        segments = tmp_slopes.size();
+        //segments = tmp_slopes.size();
+        segments = slope_ranges.size();
 
-        slopes = slope_container(tmp_slopes);
+        std::vector<Floating> min_entropy_slopes = slope_compressor::compress(slope_ranges);
+
+        slopes = slope_container(min_entropy_slopes);
 
         x = sdsl::sd_vector<>(bv_x);
         sdsl::util::init_support(rank_x, &x);
 		sdsl::util::init_support(select_x, &x);
+
+        // compute the new intercepts
+        for(size_t i = 0; i < min_entropy_slopes.size(); ++i) {
+            auto [i_x, i_y] = xy_pairs[i];
+            Floating slope = min_entropy_slopes[i];
+            int64_t beta = (int64_t) std::round(i_y - (i_x - select_x(i + 1)) * slope);
+            int64_t delta = int64_t(tmp_y[i]) - int64_t(beta);
+            assert(std::abs(delta) <= 2*(epsilon + 2));
+            beta_shift = (delta < beta_shift) ? delta : beta_shift;
+            tmp_beta.push_back(delta);
+        }
 
         y = sux::bits::EliasFano<>(tmp_y, tmp_y.back() + 1);
 
@@ -116,7 +137,7 @@ public:
                 + slopes.size();
     }
 
-    inline size_t bps() {
+    inline double bps() {
         return double(size()) / double(segments);
     }
 

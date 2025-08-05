@@ -62,10 +62,15 @@ int main(int argc, char *argv[]) {
 
     std::vector<uint32_t> queries = generate_uniform_queries<uint32_t>(15000, data.size());
 
-    SlopeCompressedPLA<uint32_t, uint32_t, float, dist_float_vector> scpla(data, epsilon);
+    SlopeCompressedPLA<uint32_t, uint32_t, float, huff_float_vector> huff_slope_pla(data, epsilon);
 
-    std::cout << dataset_name << "," << epsilon <<  ",scpla," << scpla.size() << 
-                "," << scpla.bps() << "," << measure_predict_time<decltype(scpla), uint32_t, uint32_t>(scpla, queries) << std::endl;
+    std::cout << dataset_name << "," << epsilon <<  ",huff_slope_pla," << huff_slope_pla.size() << 
+                "," << huff_slope_pla.bps() << "," << measure_predict_time<decltype(huff_slope_pla), uint32_t, uint32_t>(huff_slope_pla, queries) << std::endl;
+
+    SlopeCompressedPLA<uint32_t, uint32_t, float, dist_float_vector> dist_slope_pla(data, epsilon);
+
+    std::cout << dataset_name << "," << epsilon <<  ",dist_slope_pla," << dist_slope_pla.size() << 
+                "," << dist_slope_pla.bps() << "," << measure_predict_time<decltype(dist_slope_pla), uint32_t, uint32_t>(dist_slope_pla, queries) << std::endl;
 
     PlainPLA<uint32_t, uint32_t, float> pla(data, epsilon);
 

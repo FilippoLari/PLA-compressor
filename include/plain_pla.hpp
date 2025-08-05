@@ -6,10 +6,6 @@
 #include <vector>
 
 #include "piecewise_linear_model.hpp"
-#include "float_vector.hpp"
-
-//discard
-#include "slope_compressor.hpp"
 
 template<typename X, typename Y, typename Floating>
 class PlainPLA {
@@ -22,38 +18,25 @@ class PlainPLA {
 
     std::vector<Segment> segments;
 
-    uint64_t n;
+    uint64_t epsilon;
+
+    size_t n;
+    Y u;
 
 public:
 
     PlainPLA() = default;
 
-    explicit PlainPLA(const std::vector<Y> &data, const uint64_t epsilon) : n(data.size()) {
+    explicit PlainPLA(const std::vector<Y> &data, const uint64_t epsilon) : n(data.size()), u(data.back()) {
         if(n == 0) [[unlikely]] 
             return;
 
         segments.reserve(n / (epsilon * epsilon));
 
-        //discard
-        std::vector<std::pair<Floating,Floating>> slope_ranges;
-        std::vector<float> original_slopes;
-
         auto in_fun = [data](auto i) { return std::pair<X,Y>(i, data[i]); };
-        auto out_fun = [&](auto cs) { segments.emplace_back(cs); slope_ranges.emplace_back(cs.get_slope_range()); };
+        auto out_fun = [&](auto cs) { segments.emplace_back(cs); };
 
         make_segmentation_par(n, epsilon, in_fun, out_fun);
-
-        for(const auto &s : segments) {
-            original_slopes.push_back(s.slope);
-        }
-
-        std::vector<float> csl = slope_compressor::compress(slope_ranges);
-    
-        dist_float_vector hfv(csl);
-        dist_float_vector original(original_slopes);
-
-        std::cout << "bps original: " << double(original.size()) / double(original_slopes.size()) << std::endl;
-        std::cout << "bps compressed: " << double(hfv.size()) / double(csl.size()) << std::endl;
     }
 
     [[nodiscard]] Y predict(const X &v) const {
@@ -65,10 +48,32 @@ public:
         return segments.size() * sizeof(Segment) * CHAR_BIT;
     }
 
-    inline size_t bps() const {
+    inline double bps() const {
         return double(size()) / double(segments.size());
     }
 
+    /**
+     * Compute an approximation of the lower bound on the number of bits per segment
+     * needed for storing a PLA in the compression setting.
+     */
+    inline double bps_lower_bound(const std::vector<Y>& data) const {
+        const uint64_t l = segments.size();
+        const uint64_t nl1 = n - l + 1;
+        const uint64_t lm1 = l - 1;
+
+        double sum = 0.0;
+        double prev = static_cast<double>(data[segments[0].x]);
+
+        for(size_t i = 1; i < l; ++i) {
+            double curr = static_cast<double>(data[segments[i].x]);
+            sum += std::log2(curr - prev + 1.0);
+            prev = curr;
+        }
+
+        return ((n - l - 1) * std::log2(static_cast<double>(nl1) / lm1) +
+               l * std::log2(static_cast<double>(u - l) / l) +
+               2.0 * l * std::log2(2.0 * epsilon + 1.0)) / static_cast<double>(l) ;
+    }  
 };
 
 template<typename X, typename Y, typename Floating>

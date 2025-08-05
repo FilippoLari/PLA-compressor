@@ -7,19 +7,25 @@
 #include "slope_compressed_pla.hpp"
 #include "float_vector.hpp"
 
+#include "slope_compressor.hpp"
+
 int main(void) {
     const uint64_t epsilon = 64;
 
-    std::vector<uint64_t> data(10000000);
+    std::vector<uint64_t> data(30000000);
 
     std::generate(data.begin(), data.end(), std::rand);
     
     std::sort(data.begin(), data.end());
 
-    SlopeCompressedPLA<uint64_t, uint64_t, float, huff_float_vector> pla(data, epsilon);
+    PlainPLA<uint64_t, uint64_t, float> pla(data, epsilon);
 
-    std::cout << data[15000] << " " << pla.predict(15000) << std::endl;
+    std::cout << pla.bps_lower_bound(data) << std::endl;
+
+    //SlopeCompressedPLA<uint64_t, uint64_t, float, huff_float_vector> pla(data, epsilon);
     
+    //std::cout << "bps: " << pla.bps() << std::endl;
+
     /*CompressedPLA<uint64_t, uint64_t> cpla(data, epsilon);
 
     PlainPLA<uint64_t, uint64_t, float> pla(data, epsilon);
