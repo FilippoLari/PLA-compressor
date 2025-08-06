@@ -58,7 +58,9 @@ public:
         // n + 1 positions allows us to avoid an if at query time
         sdsl::bit_vector bv_x(n + 1, 0);
 
-        //tmp_slopes.reserve(expected_segments);
+        // delete
+        std::vector<Floating> tmp_slopes;
+
         tmp_beta.reserve(expected_segments);
         tmp_y.reserve(expected_segments);
 
@@ -69,12 +71,16 @@ public:
         auto in_fun = [data](auto i) { return std::pair<X,Y>(i, data[i]); };
         auto out_fun = [&](auto cs) { 
             const X x = cs.get_first_x();
-            //const auto [slope, beta, _] = cs.get_floating_point_segment(x, 0); 
+            
+            // delete
+            const auto [slope, bb, _] = cs.get_floating_point_segment(x, 0); 
+            tmp_slopes.push_back(slope);
+
             const Y y = data[x];
             //const int64_t delta = int64_t(y) - int64_t(beta);
             //beta_shift = (delta < beta_shift) ? delta : beta_shift;
             slope_ranges.push_back(cs.get_slope_range());
-            //tmp_slopes.push_back(slope); 
+             
             //tmp_beta.push_back(delta);
             tmp_y.push_back(y);
             bv_x[x] = 1;
@@ -112,6 +118,10 @@ public:
         //build_packed_vector(tmp_beta, beta_shift);
 
         //betas = rle_vector<Y>(tmp_beta);
+
+        //delete:
+        /*std::cout << " original entropy: " << mantissae_entropy(tmp_slopes) << std::endl;
+        std::cout << " opt entropy: " << mantissae_entropy(min_entropy_slopes) << std::endl;*/
     }
 
     [[nodiscard]] Y predict(const X &x) {
@@ -152,6 +162,27 @@ private:
         sdsl::util::bit_compress(packed_vec);
 
         return packed_vec;
+    }
+
+    // temporary
+    inline double mantissae_entropy(const std::vector<float> &slopes) {
+        const int mant_bits = sizeof(float) * 8 - 8 - 1;
+        std::unordered_map<uint32_t, uint64_t> freq;
+        for(const float slope : slopes) {
+            uint32_t bits;
+            std::memcpy(&bits, &slope, sizeof(float));
+            uint32_t mantissa = bits & ((uint32_t(1) << mant_bits) - 1);
+            freq[mantissa]++;
+        }
+
+        double entropy = 0.;
+        size_t n = slopes.size(); 
+
+        for(const auto &[_, f] : freq) {
+            entropy += (double(f) / double(n)) * log2((double(n) / double(f)));
+        }
+
+        return entropy;
     }
 
 };

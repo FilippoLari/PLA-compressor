@@ -13,6 +13,7 @@
 
 #include "huffman_vector.hpp"
 #include "dist_vector.hpp"
+#include "pfor_vector.hpp"
 
 template<class compressed_seq, typename Floating = float,
          bool AllPositive = true, bool AllNegative = false>
@@ -75,10 +76,6 @@ public:
         exponents = compressed_seq(tmp_exponents);
     }
 
-    inline Floating access(size_t i) const {
-        return (*this)[i];
-    }
-
     const Floating operator[](size_t i) const {
         UInt mantissa = mantissae[i];
         uint32_t exponent = exponents[i];
@@ -121,3 +118,5 @@ private:
 using huff_float_vector = float_vector<huffman_vector<uint32_t, 64>, float, true, false>;
 
 using dist_float_vector = float_vector<dist_vector<uint32_t>, float, true, false>;
+
+using pfor_float_vector = float_vector<pfor_vector<uint32_t>, float, true, false>;

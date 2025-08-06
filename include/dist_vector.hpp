@@ -66,4 +66,11 @@ public:
         return  (sdsl::size_in_bytes(distinct) +
                 + sdsl::size_in_bytes(index_mapping)) * CHAR_BIT;
     }
+
+    inline std::map<T, size_t> get_frequencies() const {
+        std::map<T, size_t> frequencies;
+        for(const auto &index : index_mapping)
+            frequencies[distinct[index]]++;
+        return frequencies;
+    }
 };

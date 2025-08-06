@@ -108,7 +108,7 @@ public:
  * 
  * Access time: O(log(n)loglog(n)) 
  */
-template<typename T, uint32_t dens = 128>
+template<typename T, uint32_t dens = 64>
 class huffman_vector {
 
     sdsl::bit_vector code_sequence;

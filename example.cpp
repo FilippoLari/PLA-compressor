@@ -5,22 +5,31 @@
 #include "plain_pla.hpp"
 
 #include "slope_compressed_pla.hpp"
-#include "float_vector.hpp"
 
-#include "slope_compressor.hpp"
+#include "pfor_vector.hpp"
 
 int main(void) {
-    const uint64_t epsilon = 64;
+    /*const uint64_t epsilon = 64;
 
-    std::vector<uint64_t> data(30000000);
+    std::vector<uint64_t> data(200000);
 
     std::generate(data.begin(), data.end(), std::rand);
-    
+
     std::sort(data.begin(), data.end());
 
-    PlainPLA<uint64_t, uint64_t, float> pla(data, epsilon);
+    pfor_vector<uint32_t> pfv(data);*/
 
-    std::cout << pla.bps_lower_bound(data) << std::endl;
+    for(uint8_t i = 0; i < 64; i+=8) {
+        for(uint8_t j = i; j < i + 8; ++j)
+            std::cout << (1UL << j) - 1UL << "UL, ";
+        std::cout << std::endl;
+    }
+
+    /*PlainPLA<uint64_t, uint64_t, float> pla(data, epsilon);
+
+    std::cout << pla.bps() << std::endl;
+
+    std::cout << pla.bps_lower_bound(data) << std::endl;*
 
     //SlopeCompressedPLA<uint64_t, uint64_t, float, huff_float_vector> pla(data, epsilon);
     

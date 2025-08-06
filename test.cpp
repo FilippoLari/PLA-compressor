@@ -12,6 +12,7 @@
 #include "dist_vector.hpp"
 #include "rle_vector.hpp"
 #include "float_vector.hpp"
+#include "pfor_vector.hpp"
 
 class TestingData : public ::testing::Test {
 protected:
@@ -59,7 +60,6 @@ std::vector<uint32_t> TestingData::int_data;
 std::vector<uint32_t> TestingData::sorted_int_data;
 std::vector<float> TestingData::float_data;
 
-/*
 TEST_F(TestingData, HuffVectorTest) {
     huffman_vector<uint32_t, 64> hv(int_data);
     for(uint64_t i = 0; i < int_data.size(); ++i) {
@@ -99,7 +99,14 @@ TEST_F(TestingData, RunLengthVectorTest) {
                                         " i: " << i;
     }
 }
-*/
+
+TEST_F(TestingData, PForVectorTest) {
+    pfor_vector<uint32_t> pfv(int_data);
+    for(uint64_t i = 0; i < int_data.size(); ++i) {
+        ASSERT_EQ(pfv[i], int_data[i]) << " pfv[i] = " << pfv[i] << ", data[i] = " << int_data[i] << 
+                                        " i: " << i;
+    }
+}
 
 TEST_F(TestingData, PlainPLATest) {
     PlainPLA<uint32_t, uint32_t, float> pla(sorted_int_data, 128);

@@ -62,20 +62,21 @@ int main(int argc, char *argv[]) {
 
     std::vector<uint32_t> queries = generate_uniform_queries<uint32_t>(15000, data.size());
 
-    SlopeCompressedPLA<uint32_t, uint32_t, float, huff_float_vector> huff_slope_pla(data, epsilon);
+    /*SlopeCompressedPLA<uint32_t, uint32_t, float, huff_float_vector> huff_slope_pla(data, epsilon);
 
     std::cout << dataset_name << "," << epsilon <<  ",huff_slope_pla," << huff_slope_pla.size() << 
                 "," << huff_slope_pla.bps() << "," << measure_predict_time<decltype(huff_slope_pla), uint32_t, uint32_t>(huff_slope_pla, queries) << std::endl;
+*/
+    SlopeCompressedPLA<uint32_t, uint32_t, float, pfor_float_vector> pfor_slope_pla(data, epsilon);
 
-    SlopeCompressedPLA<uint32_t, uint32_t, float, dist_float_vector> dist_slope_pla(data, epsilon);
+    std::cout << dataset_name << "," << epsilon <<  ",pfor_slope_pla," << pfor_slope_pla.size() << 
+                "," << pfor_slope_pla.bps() << "," << measure_predict_time<decltype(pfor_slope_pla), uint32_t, uint32_t>(pfor_slope_pla, queries) << std::endl;
 
-    std::cout << dataset_name << "," << epsilon <<  ",dist_slope_pla," << dist_slope_pla.size() << 
-                "," << dist_slope_pla.bps() << "," << measure_predict_time<decltype(dist_slope_pla), uint32_t, uint32_t>(dist_slope_pla, queries) << std::endl;
-
-    PlainPLA<uint32_t, uint32_t, float> pla(data, epsilon);
+    /*PlainPLA<uint32_t, uint32_t, float> pla(data, epsilon);
 
     std::cout << dataset_name << "," << epsilon << ",pla," << pla.size() << 
                 "," << pla.bps() << "," << measure_predict_time<decltype(pla), uint32_t, uint32_t>(pla, queries) << std::endl;
+    */
 
     /*PlainPLA<uint32_t, uint32_t, float> pla(data, epsilon);
 
