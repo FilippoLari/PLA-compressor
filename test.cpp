@@ -121,6 +121,29 @@ TEST_F(TestingData, PlainPLATest) {
     }
 }
 
+TEST_F(TestingData, SuccinctPLAIndexingTest) {
+    SuccinctPLA<uint32_t, uint32_t> cpla(sorted_int_data, 128);
+    const int32_t range_size = 2*(128 + 3);
+    for(size_t i = 0; i < sorted_int_data.size(); ++i) {
+        const uint32_t pred = cpla.predict(sorted_int_data[i]);
+        int32_t diff = int32_t(pred) - int32_t(i);
+        diff = (diff < 0) ? (-1) * diff : diff;
+        ASSERT_TRUE((diff <= range_size)) << "pos: " << i << " pred: " << pred << " diff: " << diff;
+    }
+}
+
+TEST_F(TestingData, SuccinctPLACompressionTest) {
+    SuccinctPLA<uint32_t, uint32_t, false> cpla(sorted_int_data, 128);
+    const int32_t range_size = 2*(128 + 3);
+    for(size_t i = 0; i < sorted_int_data.size(); ++i) {
+        const uint32_t pred = cpla.predict(i);
+        const uint32_t y = sorted_int_data[i];
+        int32_t diff = int32_t(pred) - int32_t(y);
+        diff = (diff < 0) ? (-1) * diff : diff;
+        ASSERT_TRUE((diff <= range_size)) << "pos: " << i << " pred: " << pred << " y: " << y << " diff: " << diff;
+    }
+}
+
 /*TEST_F(TestingData, SlopeCompressedPLATest) {
     SlopeCompressedPLA<uint32_t, uint32_t, float, dist_float_vector> scpla(sorted_int_data, 128);
     const int32_t range_size = 2*(128 + 2);
@@ -131,20 +154,6 @@ TEST_F(TestingData, PlainPLATest) {
         diff = (diff < 0) ? -diff : diff;
         ASSERT_TRUE((diff <= range_size)) << "pos: " << i << " pred: " << pred << " real: " << y << " diff: " << diff;
     }
-}*/
-
-/*
-TEST_F(TestingData, SuccinctPLATest) {
-    CompressedPLA<uint32_t, uint32_t> cpla(sorted_int_data, 128);
-    const int32_t range_size = 2*(128 + 3);
-    for(uint64_t i = 0; i < sorted_int_data.size(); ++i) {
-        const uint32_t y = sorted_int_data[i];
-        const uint32_t pred = cpla.predict(i);
-        int32_t diff = int32_t(pred) - int32_t(y);
-        diff = (diff < 0) ? (-1) * diff : diff;
-        ASSERT_TRUE((diff <= range_size)) << "pos: " << i << " pred: " << pred << " real: " << y << " diff: " << diff;
-    }
-}
 }*/
 
 int main(int argc, char **argv) {
