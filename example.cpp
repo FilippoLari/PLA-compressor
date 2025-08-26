@@ -3,19 +3,17 @@
 
 #include "plain_pla.hpp"
 #include "slope_compressed_pla.hpp"
-#include "pfor_vector.hpp"
-#include "general_succ_pla.hpp"
 
 int main(void) {
-    const uint64_t epsilon = 32;
+    const uint64_t epsilon = 64;
 
-    std::vector<uint64_t> data(2000000);
+    std::vector<uint64_t> data(200000);
 
     std::generate(data.begin(), data.end(), std::rand);
 
     std::sort(data.begin(), data.end());
 
-    SuccinctPLA<uint64_t, uint32_t> spla(data, epsilon);
+    /*SuccinctPLA<uint64_t, uint32_t> spla(data, epsilon);
 
     std::cout << "bps: " << spla.bps() << std::endl;
 
@@ -23,7 +21,9 @@ int main(void) {
 
     for(const auto &entry : spla.components_size())
         std::cout << entry.first << ", " << entry.second << ", " <<
-                 (double(entry.second) / double(spla.size())) * 100 << std::endl;
+                 (double(entry.second) / double(spla.size())) * 100 << std::endl;*/
+
+    SlopeCompressedPLA<uint32_t, uint64_t, float, dist_float_vector> scpla(data, epsilon);
 
     /*PlainPLA<uint64_t, uint64_t, float> pla(data, epsilon);
 

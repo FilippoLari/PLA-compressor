@@ -149,7 +149,7 @@ public:
             merged_range updated = std::move(*it);
             eq_exp_merged.erase(it);
 
-            updated.update(new_m_a, new_m_b, {exp, new_m_a, exp, new_m_b, idx}); // we use always the same exponent
+            updated.update(new_m_a, new_m_b, {exp, new_m_a, exp, new_m_b, idx}); // we always use the same exponent
 
             auto pos = std::lower_bound(eq_exp_merged.begin(), eq_exp_merged.end(), updated);
 
@@ -182,7 +182,9 @@ public:
                 }
             }
 
-            if(!merged) std::cout << "not merged" << std::endl;
+            if(!merged) [[unlikely]] {
+                eq_exp_merged.push_back(std::move(range_to_merge));
+            }
         }
 
         // finalize the assignment
