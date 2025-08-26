@@ -88,7 +88,7 @@ struct PlainPLA<X, Y, Floating>::Segment {
 
     explicit Segment(const typename OptimalPiecewiseLinearModel<X, Y>::CanonicalSegment &cs)
         : x(cs.get_first_x()) {
-        auto[cs_slope, cs_intercept, _] = cs.get_floating_point_segment(x, 0);
+        auto[cs_slope, cs_intercept, _] = cs.get_floating_point_segment(x);
         if (cs_intercept > std::numeric_limits<decltype(intercept)>::max())
             throw std::overflow_error("Change the type of Segment::intercept to uint64");
         slope = cs_slope;

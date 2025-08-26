@@ -10,13 +10,14 @@
 /**
  * A compressed sequence inspired by the PForDelta encoding.
  * It stores the distinct symbols in the sequence, sorted by frequency.
- * A separate array stores indexes inside the symbol table for each symbol
- * in the sequence. This array is splitted in two parts: one storing indexes
- * that can be represented using b bist, and the other storing the remaining indexes. 
- * A bit vector keeps track of this partitioning.
+ * A separate array stores indexes inside the symbol table. This array is 
+ * splitted into two parts: one storing indexes that can be represented 
+ * using b bist, and the other storing the remaining indexes. A bit vector keeps 
+ * track of this partitioning. b is automatically selected to minimize the space usage.
  * 
- * Space: t*log(|S|) + b*n_b + (n - n_b)*log(t) + n + o(n) bits.
- *          - t is the number of distinct symbols
+ * Space: t*log(u) + b*n_b + (n - n_b)*log(t) + n + o(n) bits.
+ *          - u is the largest value in the sequence
+ *          - t is the number of distinct values
  *          - b is the number of bits allocated for each index inside the symbol table
  *          - n_b is the number of indexes that can be represented using b bits
  * 
@@ -24,7 +25,7 @@
  * 
  * TODO: 1. Based on the number of escaped indexes adaptively choose between Elias-Fano
  *          or a plain bit vector. Otherwise, always use Elias-Fano, but adaptively 
- *          negate the bit vector in such a way to keep it sparse.
+ *          negate the bit vector in such a way to minimize the density of 1s.
  */
 template<typename T>
 class pfor_vector {
@@ -129,6 +130,17 @@ public:
 
 private:
 
+    /**
+     * Compute the value of b that minimizes the space usage 
+     * s(b) = b*n_b - n_b*log(t). This function is unimodal,
+     * i.e., first decreasing and then increasing. the optimal b can be
+     * found using a ternary search in O(nloglogn) time.
+     * 
+     * TODO: avoid scanning the whole input inside compute_unescaped.
+     *       If b increases then the number of indexes that can be represented
+     *       with b - 1 bits can still be represented with b bits. Just check
+     *       the ones that were not representable in the previous iteration.
+     */
     template<class container>
     void partition_sequence(const container &data, std::unordered_map<T, size_t> &symbols_rank,
                                 std::vector<size_t> &sequence, std::vector<size_t> &escaped_seq) {

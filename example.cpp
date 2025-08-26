@@ -1,29 +1,29 @@
 #include <iostream>
 #include <random>
 
-//#include "compressed_pla.hpp"
 #include "plain_pla.hpp"
-
 #include "slope_compressed_pla.hpp"
-
 #include "pfor_vector.hpp"
+#include "general_succ_pla.hpp"
 
 int main(void) {
-    /*const uint64_t epsilon = 64;
+    const uint64_t epsilon = 32;
 
-    std::vector<uint64_t> data(200000);
+    std::vector<uint64_t> data(2000000);
 
     std::generate(data.begin(), data.end(), std::rand);
 
     std::sort(data.begin(), data.end());
 
-    pfor_vector<uint32_t> pfv(data);*/
+    SuccinctPLA<uint64_t, uint32_t> spla(data, epsilon);
 
-    for(uint8_t i = 0; i < 64; i+=8) {
-        for(uint8_t j = i; j < i + 8; ++j)
-            std::cout << (1UL << j) - 1UL << "UL, ";
-        std::cout << std::endl;
-    }
+    std::cout << "bps: " << spla.bps() << std::endl;
+
+    std::cout << "Component, Space (Bits), Occupancy (%)" << std::endl;
+
+    for(const auto &entry : spla.components_size())
+        std::cout << entry.first << ", " << entry.second << ", " <<
+                 (double(entry.second) / double(spla.size())) * 100 << std::endl;
 
     /*PlainPLA<uint64_t, uint64_t, float> pla(data, epsilon);
 

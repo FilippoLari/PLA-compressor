@@ -1,10 +1,13 @@
+#include <type_traits>
+#include <filesystem>
 #include <iostream>
-#include <vector>
 #include <chrono>
 #include <random>
+#include <string>
+#include <vector>
 
 #include "slope_compressed_pla.hpp"
-#include "compressed_pla.hpp"
+#include "succinct_pla.hpp"
 #include "index_reader.hpp"
 #include "plain_pla.hpp"
 
@@ -17,7 +20,8 @@ void do_not_optimize(T const &value) {
 }
 
 template<class pla_t, typename X, typename Y>
-double measure_predict_time(pla_t &pla, const std::vector<X> &queries) {
+void measure_predict_time(const std::string &dataset, const std::string &name, const uint64_t epsilon,
+                             pla_t &pla, const std::vector<X> &queries) {
     Y checksum = 0;
 
     auto start = timer::now();
@@ -28,7 +32,10 @@ double measure_predict_time(pla_t &pla, const std::vector<X> &queries) {
 
     do_not_optimize(checksum);
 
-    return std::chrono::duration_cast<nanoseconds>(timer::now() - start).count() / double(queries.size());
+    double time = std::chrono::duration_cast<nanoseconds>(timer::now() - start).count() / double(queries.size());
+
+    std::cout << dataset << "," << epsilon << "," << name << "," << pla.size() << 
+                "," << pla.bps() << "," << time << std::endl;
 }
 
 template<typename X>
@@ -45,52 +52,48 @@ std::vector<X> generate_uniform_queries(uint64_t n, X u) {
     return queries;
 }
 
+template<typename Y>
+void run_benchmark(const std::string& dataset_path, uint64_t num_queries, uint64_t epsilon) {
+    bool start_with_size = !std::is_same_v<Y, uint64_t>;
+
+    const std::string dataset_name = std::filesystem::path(dataset_path).filename().string();
+
+    std::vector<Y> data = read_data_binary<Y, Y>(dataset_path, start_with_size);
+
+    std::vector<uint32_t> queries = generate_uniform_queries<uint32_t>(num_queries, data.size());
+
+    SlopeCompressedPLA<uint32_t, Y, float, pf_mixed_float_vector> opt_slope_pfor(data, epsilon);
+    measure_predict_time<decltype(opt_slope_pfor), uint32_t, Y>(dataset_name, "opt_slope_pfor",
+                                                                 epsilon, opt_slope_pfor, queries);
+    PlainPLA<uint32_t, Y, float> plain_pla(data, epsilon);
+    measure_predict_time<decltype(plain_pla), uint32_t, Y>(dataset_name, "plain_pla",
+                                                                 epsilon, plain_pla, queries);
+}
+
 int main(int argc, char *argv[]) {
 
-    if(argc != 3) {
-        std::cerr << "Usage ./benchmark path epsilon" << std::endl;
+    if(argc != 4) {
+        std::cerr << "Usage ./benchmark <dataset_path> <epsilon> <bitwidth (32|64)>" << std::endl;
         return -1;
     }
 
-    const std::string file_path = argv[1];
-    const size_t pos = file_path.find_last_of("/"); 
-    const std::string dataset_name = (pos == std::string::npos) ? file_path : file_path.substr(pos + 1);
-
+    const std::string dataset_path = argv[1];
     const uint64_t epsilon = std::stoull(argv[2]);
+    constexpr uint64_t num_queries = 15000;
+    const std::string bit_width = argv[3];
 
-    std::vector<uint32_t> data(read_data_binary<uint32_t, uint32_t>(file_path, true));
+    const std::string dataset_name = std::filesystem::path(dataset_path).filename().string();
 
-    std::vector<uint32_t> queries = generate_uniform_queries<uint32_t>(15000, data.size());
-
-    /*SlopeCompressedPLA<uint32_t, uint32_t, float, huff_float_vector> huff_slope_pla(data, epsilon);
-
-    std::cout << dataset_name << "," << epsilon <<  ",huff_slope_pla," << huff_slope_pla.size() << 
-                "," << huff_slope_pla.bps() << "," << measure_predict_time<decltype(huff_slope_pla), uint32_t, uint32_t>(huff_slope_pla, queries) << std::endl;
-*/
-    SlopeCompressedPLA<uint32_t, uint32_t, float, pfor_float_vector> pfor_slope_pla(data, epsilon);
-
-    std::cout << dataset_name << "," << epsilon <<  ",pfor_slope_pla," << pfor_slope_pla.size() << 
-                "," << pfor_slope_pla.bps() << "," << measure_predict_time<decltype(pfor_slope_pla), uint32_t, uint32_t>(pfor_slope_pla, queries) << std::endl;
-
-    /*PlainPLA<uint32_t, uint32_t, float> pla(data, epsilon);
-
-    std::cout << dataset_name << "," << epsilon << ",pla," << pla.size() << 
-                "," << pla.bps() << "," << measure_predict_time<decltype(pla), uint32_t, uint32_t>(pla, queries) << std::endl;
-    */
-
-    /*PlainPLA<uint32_t, uint32_t, float> pla(data, epsilon);
-
-    CompressedPLA<uint32_t, uint32_t> cpla(data, epsilon);
-
-    std::cout << dataset_name << "," << epsilon <<  ",cpla," << cpla.size() << 
-                "," << cpla.bps() << "," << measure_predict_time<decltype(cpla), uint32_t, uint32_t>(cpla, queries) << std::endl;
-
-    std::cout << dataset_name << "," << epsilon << ",pla," << pla.size() << 
-                "," << pla.bps() << "," << measure_predict_time<decltype(pla), uint32_t, uint32_t>(pla, queries) << std::endl;
-    */
-
+    if(bit_width == "64") {
+        run_benchmark<uint64_t>(dataset_path, num_queries, epsilon);
+    } else if(bit_width == "32"){
+        run_benchmark<uint32_t>(dataset_path, num_queries, epsilon);
+    } else {
+        std::cerr << "Invalid bitwidth argument. Use 32 or 64" << std::endl;
+        return -1;
+    }
+    
     /*auto components = cpla.components_size();
-
     std::cout << "dataset,epsilon,component,size" << std::endl;
     for(const auto &component : components) {
         std::cout << dataset_name << "," << epsilon << "," << component.first 

@@ -102,6 +102,9 @@ private:
     Hull<true> upper;
     X first_x = 0;
     X last_x = 0;
+    X last_x_s = 0;
+    Y first_y = 0;
+    Y last_y = 0;
     size_t lower_start = 0;
     size_t upper_start = 0;
     size_t points_in_hull = 0;
@@ -130,15 +133,18 @@ public:
     }
 
     bool add_point(const X &x, const Y &y) {
-        if (points_in_hull > 0 && x <= last_x)
+        if (points_in_hull > 0 && x <= last_x_s)
             throw std::logic_error("Points must be increasing by x.");
 
-        last_x = x;
+        last_x_s = x;
         Point p1{x, SY(y) + epsilon};
         Point p2{x, SY(y) - epsilon};
 
         if (points_in_hull == 0) {
             first_x = x;
+            first_y = y;
+            last_x = x;
+            last_y = y;
             rectangle[0] = p1;
             rectangle[1] = p2;
             upper.clear();
@@ -156,10 +162,12 @@ public:
             upper.push(x, y);
             lower.push(x, y);
             ++points_in_hull;
+            last_x = x;
+            last_y = y;
             return true;
         }
 
-        if (epsilon == 0) {
+        if (epsilon == 0) { // update last_x and last_y ??
             auto p1_on_line1 = p1 - rectangle[0] == rectangle[2] - rectangle[0];
             points_in_hull = p1_on_line1 ? points_in_hull + 1 : 0;
             return p1_on_line1;
@@ -221,14 +229,17 @@ public:
             lower.push(x, y);
         }
 
+        last_x = x;
+        last_y = y;
+
         ++points_in_hull;
         return true;
     }
 
     CanonicalSegment get_segment() const {
         if (points_in_hull == 1)
-            return CanonicalSegment(rectangle[0], rectangle[1], first_x);
-        return CanonicalSegment(rectangle, first_x);
+            return CanonicalSegment(rectangle[0], rectangle[1], first_x, last_x, first_y, last_y);
+        return CanonicalSegment(rectangle, first_x, last_x, first_y, last_y);
     }
 
     void reset() {
@@ -243,12 +254,20 @@ class OptimalPiecewiseLinearModel<X, Y>::CanonicalSegment {
     friend class OptimalPiecewiseLinearModel;
 
     Point rectangle[4];
-    X first;
 
-    CanonicalSegment(const Point &p0, const Point &p1, X first) : rectangle{p0, p1, p0, p1}, first(first) {};
+    X first_x;
+    X last_x;
 
-    CanonicalSegment(const Point (&rectangle)[4], X first)
-        : rectangle{rectangle[0], rectangle[1], rectangle[2], rectangle[3]}, first(first) {};
+    Y first_y;
+    Y last_y;
+
+    CanonicalSegment(const Point &p0, const Point &p1, X first_x, X last_x,
+                      Y first_y, Y last_y) : rectangle{p0, p1, p0, p1}, first_x(first_x),
+                                             last_x(last_x), first_y(first_y), last_y(last_y) {};
+
+    CanonicalSegment(const Point (&rectangle)[4], X first_x, X last_x,
+                        Y first_y, Y last_y) :  rectangle{rectangle[0], rectangle[1], rectangle[2], rectangle[3]},
+                                                 first_x(first_x), last_x(last_x), first_y(first_y), last_y(last_y) {};
 
     bool one_point() const {
         return rectangle[0].x == rectangle[2].x && rectangle[0].y == rectangle[2].y
@@ -259,15 +278,15 @@ public:
 
     CanonicalSegment() = default;
 
-    explicit CanonicalSegment(X first) : CanonicalSegment({first, 0}, {first, 0}, first) {};
+    explicit CanonicalSegment(X first_x) : CanonicalSegment({first_x, 0}, {first_x, 0}, first_x, 0, 0, 0) {};
 
-    X get_first_x() const { return first; }
+    X get_first_x() const { return first_x; }
 
-    CanonicalSegment copy(X x) const {
-        auto c(*this);
-        c.first = x;
-        return c;
-    }
+    X get_last_x() const { return last_x; }
+
+    Y get_first_y() const { return first_y; }
+
+    Y get_last_y() const { return last_y; }
 
     std::pair<long double, long double> get_intersection() const {
         auto &p0 = rectangle[0];
@@ -288,7 +307,7 @@ public:
         return {i_x, i_y};
     }
 
-    std::tuple<long double, SY, SY> get_floating_point_segment(const X &origin, const X &last) const {
+    std::tuple<long double, SY, SY> get_floating_point_segment(const X &origin) const {
         if (one_point()) {
             const auto avg = (rectangle[0].y + rectangle[1].y) / 2;
             return {0, avg, avg}; 
@@ -301,9 +320,14 @@ public:
             auto rounding_term = ((intercept_n < 0) ^ (intercept_d < 0) ? -1 : +1) * intercept_d / 2;
             auto intercept = (intercept_n + rounding_term) / intercept_d + rectangle[1].y;
 
-            auto last_y = static_cast<long double>(slope) * double(last - origin) + intercept;
+            uint64_t last_y_s;
 
-            return {static_cast<long double>(slope), intercept, last_y};
+            if constexpr (std::is_same_v<X, int64_t> || std::is_same_v<X, int32_t>)
+                last_y_s = static_cast<uint64_t>(static_cast<double>(std::make_unsigned<X>(last_x) - origin) * static_cast<long double>(slope)) + intercept;
+            else
+                last_y_s = static_cast<uint64_t>(static_cast<double>(last_x - origin) * static_cast<long double>(slope)) + intercept;
+
+            return {static_cast<long double>(slope), intercept, last_y_s};
         }
 
         // todo: fix this

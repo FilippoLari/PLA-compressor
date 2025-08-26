@@ -33,9 +33,6 @@ class float_vector
     static_assert(!(AllPositive && AllNegative),
                   "AllPositive and AllNegative cannot both be true");
 
-    static_assert(AllPositive || AllNegative,
-              "At least one of AllPositive or AllNegative must be true");
-
     static constexpr bool DifferentSigns = !AllPositive && !AllNegative;
 
     static constexpr int total_bits = sizeof(Floating) * 8;
@@ -56,7 +53,7 @@ public:
         if(data.size() == 0) [[unlikely]]
             return;
         
-        if constexpr (DifferentSigns)
+        if constexpr (DifferentSigns) 
             signs = sdsl::bit_vector(data.size(), 0);
 
         std::vector<UInt> tmp_mantissae(data.size());
@@ -120,3 +117,5 @@ using huff_float_vector = float_vector<huffman_vector<uint32_t, 64>, float, true
 using dist_float_vector = float_vector<dist_vector<uint32_t>, float, true, false>;
 
 using pfor_float_vector = float_vector<pfor_vector<uint32_t>, float, true, false>;
+
+using pf_mixed_float_vector = float_vector<pfor_vector<uint32_t>, float, false, false>;

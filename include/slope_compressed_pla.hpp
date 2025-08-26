@@ -31,7 +31,6 @@ class SlopeCompressedPLA {
     sux::bits::EliasFano<> y;
 
     sdsl::int_vector<> betas;
-    //rle_vector<Y> betas;
     int64_t beta_shift;
 
     slope_container slopes;
@@ -58,9 +57,6 @@ public:
         // n + 1 positions allows us to avoid an if at query time
         sdsl::bit_vector bv_x(n + 1, 0);
 
-        // delete
-        std::vector<Floating> tmp_slopes;
-
         tmp_beta.reserve(expected_segments);
         tmp_y.reserve(expected_segments);
 
@@ -71,26 +67,15 @@ public:
         auto in_fun = [data](auto i) { return std::pair<X,Y>(i, data[i]); };
         auto out_fun = [&](auto cs) { 
             const X x = cs.get_first_x();
-            
-            // delete
-            const auto [slope, bb, _] = cs.get_floating_point_segment(x, 0); 
-            tmp_slopes.push_back(slope);
-
             const Y y = data[x];
-            //const int64_t delta = int64_t(y) - int64_t(beta);
-            //beta_shift = (delta < beta_shift) ? delta : beta_shift;
             slope_ranges.push_back(cs.get_slope_range());
-             
-            //tmp_beta.push_back(delta);
             tmp_y.push_back(y);
             bv_x[x] = 1;
-
             xy_pairs.push_back(cs.get_intersection());
         };
 
         make_segmentation_par(n, epsilon, in_fun, out_fun);
 
-        //segments = tmp_slopes.size();
         segments = slope_ranges.size();
 
         std::vector<Floating> min_entropy_slopes = slope_compressor::compress(slope_ranges);
@@ -105,8 +90,17 @@ public:
         for(size_t i = 0; i < min_entropy_slopes.size(); ++i) {
             auto [i_x, i_y] = xy_pairs[i];
             Floating slope = min_entropy_slopes[i];
-            int64_t beta = (int64_t) std::round(i_y - (i_x - select_x(i + 1)) * slope);
+
+            Floating dx = i_x - select_x(i + 1);
+            Floating dy = i_y - dx * slope;
+            int64_t beta = (int64_t) std::round(dy);
+
             int64_t delta = int64_t(tmp_y[i]) - int64_t(beta);
+            
+            if(std::abs(delta) > 2*(epsilon + 2)) {
+                std::cout << "slope: " << slope << " beta: " << beta << std::endl;
+                std::cout << "delta: " << delta << " yi: " << i_y << std::endl;
+            }
             assert(std::abs(delta) <= 2*(epsilon + 2));
             beta_shift = (delta < beta_shift) ? delta : beta_shift;
             tmp_beta.push_back(delta);
@@ -115,9 +109,6 @@ public:
         y = sux::bits::EliasFano<>(tmp_y, tmp_y.back() + 1);
 
         betas = build_packed_vector(tmp_beta, beta_shift);
-        //build_packed_vector(tmp_beta, beta_shift);
-
-        //betas = rle_vector<Y>(tmp_beta);
 
         //delete:
         /*std::cout << " original entropy: " << mantissae_entropy(tmp_slopes) << std::endl;
@@ -140,9 +131,8 @@ public:
 
     inline size_t size() {
         return (sdsl::size_in_bytes(x) + sdsl::size_in_bytes(rank_x) + sdsl::size_in_bytes(select_x)
-                //+ sdsl::size_in_bytes(betas)
+                + sdsl::size_in_bytes(betas)
                 + sizeof(beta_shift)) * CHAR_BIT
-                + betas.size()
                 + y.bitCount()
                 + slopes.size();
     }

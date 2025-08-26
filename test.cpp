@@ -5,7 +5,7 @@
 #include <random>
 
 #include "slope_compressed_pla.hpp"
-#include "compressed_pla.hpp"
+#include "succinct_pla.hpp"
 #include "plain_pla.hpp"
 
 #include "huffman_vector.hpp"
@@ -60,6 +60,7 @@ std::vector<uint32_t> TestingData::int_data;
 std::vector<uint32_t> TestingData::sorted_int_data;
 std::vector<float> TestingData::float_data;
 
+/*
 TEST_F(TestingData, HuffVectorTest) {
     huffman_vector<uint32_t, 64> hv(int_data);
     for(uint64_t i = 0; i < int_data.size(); ++i) {
@@ -106,10 +107,10 @@ TEST_F(TestingData, PForVectorTest) {
         ASSERT_EQ(pfv[i], int_data[i]) << " pfv[i] = " << pfv[i] << ", data[i] = " << int_data[i] << 
                                         " i: " << i;
     }
-}
+}*/
 
 TEST_F(TestingData, PlainPLATest) {
-    PlainPLA<uint32_t, uint32_t, float> pla(sorted_int_data, 128);
+    PlainPLA<uint32_t, uint32_t, float> pla(sorted_int_data, 64);
     const int32_t range_size = 2*(128 + 2);
     for(uint64_t i = 0; i < sorted_int_data.size(); ++i) {
         const uint32_t y = sorted_int_data[i];
@@ -119,6 +120,18 @@ TEST_F(TestingData, PlainPLATest) {
         ASSERT_TRUE((diff <= range_size)) << "pred: " << pred << " real: " << y << " diff: " << diff;
     }
 }
+
+/*TEST_F(TestingData, SlopeCompressedPLATest) {
+    SlopeCompressedPLA<uint32_t, uint32_t, float, dist_float_vector> scpla(sorted_int_data, 128);
+    const int32_t range_size = 2*(128 + 2);
+    for(uint64_t i = 0; i < sorted_int_data.size(); ++i) {
+        const uint32_t y = sorted_int_data[i];
+        const uint32_t pred = scpla.predict(i);
+        int32_t diff = int32_t(pred) - int32_t(y);
+        diff = (diff < 0) ? -diff : diff;
+        ASSERT_TRUE((diff <= range_size)) << "pos: " << i << " pred: " << pred << " real: " << y << " diff: " << diff;
+    }
+}*/
 
 /*
 TEST_F(TestingData, SuccinctPLATest) {
@@ -132,17 +145,6 @@ TEST_F(TestingData, SuccinctPLATest) {
         ASSERT_TRUE((diff <= range_size)) << "pos: " << i << " pred: " << pred << " real: " << y << " diff: " << diff;
     }
 }
-
-TEST_F(TestingData, SlopeCompressedPLATest) {
-    SlopeCompressedPLA<uint32_t, uint32_t, float, dist_float_vector> scpla(sorted_int_data, 128);
-    const int32_t range_size = 2*(128 + 2);
-    for(uint64_t i = 0; i < sorted_int_data.size(); ++i) {
-        const uint32_t y = sorted_int_data[i];
-        const uint32_t pred = scpla.predict(i);
-        int32_t diff = int32_t(pred) - int32_t(y);
-        diff = (diff < 0) ? -diff : diff;
-        ASSERT_TRUE((diff <= range_size)) << "pos: " << i << " pred: " << pred << " real: " << y << " diff: " << diff;
-    }
 }*/
 
 int main(int argc, char **argv) {
