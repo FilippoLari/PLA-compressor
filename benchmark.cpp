@@ -73,6 +73,17 @@ void run_benchmark(const std::string& dataset_path, uint64_t num_queries, uint64
     measure_predict_time<decltype(plain_pla), T, Indexing>(dataset_name, "plain_pla",
                                                         epsilon, plain_pla, queries);
 
+    if constexpr (Indexing) 
+        std::cout << dataset_name << "," << "indexing" << "," << epsilon << "," <<
+                 "lower_bound" << "," << plain_pla.lower_bound_indexing() << 
+                    "," << plain_pla.lower_bound_indexing() / double(plain_pla.get_segments()) <<
+                     ",0" << std::endl;
+    else
+        std::cout << dataset_name << "," << "compression" << "," << epsilon << "," <<
+                 "lower_bound" << "," << plain_pla.lower_bound_compression(data) << 
+                    "," << plain_pla.lower_bound_compression(data) / double(plain_pla.get_segments()) <<
+                     ",0" << std::endl;
+
     SlopeCompressedPLA<T, T, float, pf_mixed_float_vector, Indexing> opt_slope_pfor(data, epsilon);
     measure_predict_time<decltype(opt_slope_pfor), T, Indexing>(dataset_name, "opt_slope_pfor",
                                                         epsilon, opt_slope_pfor, queries);
@@ -103,7 +114,7 @@ int main(int argc, char *argv[]) {
     if(mode == "indexing") {
         run_benchmark<uint64_t, true>(dataset_path, num_queries, epsilon);
     } else if(mode == "compression"){
-        run_benchmark<uint32_t, true>(dataset_path, num_queries, epsilon);
+        run_benchmark<uint32_t, false>(dataset_path, num_queries, epsilon);
     } else {
         std::cerr << "Invalid mode. Use 'indexing' or 'compression'" << std::endl;
         return -1;

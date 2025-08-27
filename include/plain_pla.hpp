@@ -46,7 +46,7 @@ public:
         make_segmentation_par(n, epsilon, in_fun, out_fun);
     }
 
-    [[nodiscard]] Y predict(const X &v) const {
+    [[nodiscard]] int64_t predict(const X &v) const {
         const auto it = std::prev(std::upper_bound(segments.begin(), segments.end(), v));
         return (*it)(v);
     }
@@ -59,28 +59,46 @@ public:
         return double(size()) / double(segments.size());
     }
 
-    /**
-     * Compute an approximation of the lower bound on the number of bits per segment
-     * needed for storing a PLA in the compression setting.
-     */
-    /*inline double bps_lower_bound(const std::vector<Y>& data) const {
-        const uint64_t l = segments.size();
-        const uint64_t nl1 = n - l + 1;
-        const uint64_t lm1 = l - 1;
+    inline size_t get_segments() const {
+        return segments.size();
+    }
+
+    inline double lower_bound_indexing() const {
+        const double l = static_cast<double>(segments.size());
+
+        double sum = 0.0;
+        double prev = static_cast<double>(segments[0].x);
+
+        for(size_t i = 1; i < segments.size(); ++i) {
+            double curr = static_cast<double>(segments[i].x);
+            sum += std::log2(curr - prev + 1.0);
+            prev = curr;
+        }
+
+        return (l * std::log2(static_cast<double>(u - l * (2.0 * epsilon - 1.0)) / l) +
+               (l - 1.0) * std::log2(static_cast<double>(n - l*(2.0 * epsilon - 1.0) - 1.0) / (l - 1.0)) +
+               2.0 * l * std::log2(2.0 * epsilon + 1.0) + 
+                std::log2(sum));
+    }
+
+    inline double lower_bound_compression(const std::vector<X>& data) const {
+        const double l = static_cast<double>(segments.size());
 
         double sum = 0.0;
         double prev = static_cast<double>(data[segments[0].x]);
 
-        for(size_t i = 1; i < l; ++i) {
+        for(size_t i = 1; i < segments.size(); ++i) {
             double curr = static_cast<double>(data[segments[i].x]);
             sum += std::log2(curr - prev + 1.0);
             prev = curr;
         }
 
-        return ((n - l - 1) * std::log2(static_cast<double>(nl1) / lm1) +
-               l * std::log2(static_cast<double>(u - l) / l) +
-               2.0 * l * std::log2(2.0 * epsilon + 1.0)) / static_cast<double>(l) ;
-    } */
+        return (l * std::log2(static_cast<double>(u - l) / l) +
+               (l - 1.0) * std::log2(static_cast<double>(n - l - 1.0) / (l - 1.0)) +
+               2.0 * l * std::log2(2.0 * epsilon + 1.0) + 
+                std::log2(sum));
+    }
+
 };
 
 template<typename X, typename Y, typename Floating, bool Indexing>
