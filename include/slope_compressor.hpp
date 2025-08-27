@@ -96,10 +96,6 @@ public:
             
             auto [a, b, norm, remap] = normalize_range(orig_a, orig_b);
 
-            if(orig_a < 0 || orig_b < 0) { // sanity check
-                assert(a <= b);
-            }
-
             auto [exp_a, mant_a] = get_components(a);
             auto [exp_b, mant_b] = get_components(b);
 

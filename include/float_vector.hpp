@@ -119,3 +119,5 @@ using dist_float_vector = float_vector<dist_vector<uint32_t>, float, true, false
 using pfor_float_vector = float_vector<pfor_vector<uint32_t>, float, true, false>;
 
 using pf_mixed_float_vector = float_vector<pfor_vector<uint32_t>, float, false, false>;
+
+using huff_mixed_float_vector = float_vector<huffman_vector<uint32_t, 64>, float, false, false>;

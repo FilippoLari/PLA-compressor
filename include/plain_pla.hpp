@@ -7,7 +7,7 @@
 
 #include "piecewise_linear_model.hpp"
 
-template<typename X, typename Y, typename Floating>
+template<typename X, typename Y, typename Floating, bool Indexing = true>
 class PlainPLA {
 
     static_assert(std::is_integral_v<X>);
@@ -21,19 +21,26 @@ class PlainPLA {
     uint64_t epsilon;
 
     size_t n;
-    Y u;
+    X u;
 
 public:
 
     PlainPLA() = default;
 
-    explicit PlainPLA(const std::vector<Y> &data, const uint64_t epsilon) : n(data.size()), u(data.back()) {
+    explicit PlainPLA(const std::vector<std::conditional_t<Indexing, X, Y>>& data,
+                         const uint64_t epsilon) : n(data.size()), u(data.back()) {
         if(n == 0) [[unlikely]] 
             return;
 
         segments.reserve(n / (epsilon * epsilon));
 
-        auto in_fun = [data](auto i) { return std::pair<X,Y>(i, data[i]); };
+        auto in_fun = [data](auto i) { 
+            if constexpr (Indexing)
+                return std::pair<X, Y>(data[i], i); 
+            else
+                return std::pair<X, Y>(i, data[i]);
+        };
+
         auto out_fun = [&](auto cs) { segments.emplace_back(cs); };
 
         make_segmentation_par(n, epsilon, in_fun, out_fun);
@@ -56,7 +63,7 @@ public:
      * Compute an approximation of the lower bound on the number of bits per segment
      * needed for storing a PLA in the compression setting.
      */
-    inline double bps_lower_bound(const std::vector<Y>& data) const {
+    /*inline double bps_lower_bound(const std::vector<Y>& data) const {
         const uint64_t l = segments.size();
         const uint64_t nl1 = n - l + 1;
         const uint64_t lm1 = l - 1;
@@ -73,11 +80,11 @@ public:
         return ((n - l - 1) * std::log2(static_cast<double>(nl1) / lm1) +
                l * std::log2(static_cast<double>(u - l) / l) +
                2.0 * l * std::log2(2.0 * epsilon + 1.0)) / static_cast<double>(l) ;
-    }  
+    } */
 };
 
-template<typename X, typename Y, typename Floating>
-struct PlainPLA<X, Y, Floating>::Segment {
+template<typename X, typename Y, typename Floating, bool Indexing>
+struct PlainPLA<X, Y, Floating, Indexing>::Segment {
     X x;
     Floating slope;
     Y intercept;
@@ -101,12 +108,10 @@ struct PlainPLA<X, Y, Floating>::Segment {
 
     operator X() { return x; };
 
-    inline Y operator()(const X &v) const {
-        Y pos;
+    inline int64_t operator()(const X &v) const {
         if constexpr (std::is_same_v<X, int64_t> || std::is_same_v<X, int32_t>)
-            pos = size_t(slope * double(std::make_unsigned_t<X>(v) - x));
+            return static_cast<int64_t>(slope * double(static_cast<std::make_unsigned_t<X>>(v) - x) + intercept);
         else
-            pos = size_t(slope * double(v - x));
-        return pos + intercept;
+            return static_cast<int64_t>(slope * double(v - x) + intercept);
     }
 };

@@ -45,6 +45,8 @@ class SuccinctPLA {
     uint64_t segments;
     size_t n;
 
+    X last_x;
+
 public:
 
     SuccinctPLA() = default;
@@ -68,12 +70,7 @@ public:
 
         segments = make_segmentation_par(n, epsilon, in_fun, out_fun);
 
-        sdsl::bit_vector bv_x;
-
-        if constexpr (Indexing) 
-            bv_x = sdsl::bit_vector(data.back() + 1, 0);
-        else
-            bv_x = sdsl::bit_vector(n + 1, 0);
+        std::vector<X> bv_x;
 
         betas = sdsl::int_vector<>(segments);
         gammas = sdsl::int_vector<>(segments);
@@ -90,7 +87,7 @@ public:
 
             const uint64_t first_x = segments_v[i].get_first_x();
 
-            bv_x[first_x] = 1;
+            bv_x.push_back(first_x);
 
             const uint64_t last_y = segments_v[i].get_last_y();
 
@@ -119,14 +116,15 @@ public:
 
         gammas = build_packed_vector(tmp_gammas, gamma_shift);
 
-        // add dummy values to avoid branching in the predict operation
+        last_x = bv_x.back();
+        
         if constexpr (Indexing)
             tmp_y.push_back(n);
         else
-            bv_x[n] = 1;
+            bv_x.push_back(n);
 
         // initialize the Elias-Fano sequences 
-        x = sdsl::sd_vector<>(bv_x);
+        x = sdsl::sd_vector<>(bv_x.begin(), bv_x.end());
         sdsl::util::init_support(rank_x, &x);
 		sdsl::util::init_support(select_x, &x);
 
@@ -143,7 +141,13 @@ public:
      * @return the y-value given by the segment covering x
      */
     [[nodiscard]] int64_t predict(const X &x) {
-        const uint64_t i = rank_x(x + 1);
+        size_t i;
+        
+        if(x >= last_x) [[unlikely]]
+            i = segments;
+        else [[likely]]
+            i = rank_x(x + 1);
+
         X x_i = select_x(i), x_ii;
         Y y_i = y.select(i - 1), y_ii;
 
