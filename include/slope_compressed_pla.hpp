@@ -1,5 +1,6 @@
 #pragma once
 
+#include <unordered_map>
 #include <algorithm>
 #include <climits>
 #include <cstddef>
@@ -8,7 +9,7 @@
 #include "piecewise_linear_model.hpp"
 #include "slope_compressor.hpp"
 #include "float_vector.hpp"
-#include "rle_vector.hpp"
+#include "utils.hpp"
 
 #include "sdsl/sd_vector.hpp"
 #include "sdsl/int_vector.hpp"
@@ -53,7 +54,6 @@ public:
         const uint64_t expected_segments = n / (epsilon * epsilon);
         
         std::vector<std::pair<Floating, Floating>> slope_ranges;
-        //std::vector<Floating> tmp_slopes;
         std::vector<int64_t> tmp_beta;
         std::vector<uint64_t> tmp_y;
         std::vector<X> bv_x;
@@ -110,11 +110,7 @@ public:
 
         y = sux::bits::EliasFano<>(tmp_y, tmp_y.back() + 1);
 
-        betas = build_packed_vector(tmp_beta, beta_shift);
-
-        //delete:
-        /*std::cout << " original entropy: " << mantissae_entropy(tmp_slopes) << std::endl;
-        std::cout << " opt entropy: " << mantissae_entropy(min_entropy_slopes) << std::endl;*/
+        betas = build_packed_vector<int64_t>(tmp_beta, beta_shift);
     }
 
     [[nodiscard]] int64_t predict(const X &x) {
@@ -149,8 +145,8 @@ public:
         return double(size()) / double(segments);
     }
 
-    std::map<std::string, size_t> components_size() {
-        std::map<std::string, size_t> components;
+    std::unordered_map<std::string, size_t> components_size() {
+        std::unordered_map<std::string, size_t> components;
         components["first_y"] = y.bitCount();
         components["first_x"] = (sdsl::size_in_bytes(x) + sdsl::size_in_bytes(rank_x) +
                                      sdsl::size_in_bytes(select_x)) * CHAR_BIT;
@@ -159,39 +155,4 @@ public:
         components["other"] = (sizeof(segments) + sizeof(beta_shift) + sizeof(n)) * CHAR_BIT;
         return components;
     }
-
-private:
-
-    sdsl::int_vector<> build_packed_vector(std::vector<int64_t> &vec, int64_t min) const {
-        std::transform(vec.begin(), vec.end(), vec.begin(),
-            [min](int64_t v) { return v - min; });
-
-        sdsl::int_vector<> packed_vec(vec.size());
-        std::copy(vec.begin(), vec.end(), packed_vec.begin());
-        sdsl::util::bit_compress(packed_vec);
-
-        return packed_vec;
-    }
-
-    // temporary
-    inline double mantissae_entropy(const std::vector<float> &slopes) {
-        const int mant_bits = sizeof(float) * 8 - 8 - 1;
-        std::unordered_map<uint32_t, uint64_t> freq;
-        for(const float slope : slopes) {
-            uint32_t bits;
-            std::memcpy(&bits, &slope, sizeof(float));
-            uint32_t mantissa = bits & ((uint32_t(1) << mant_bits) - 1);
-            freq[mantissa]++;
-        }
-
-        double entropy = 0.;
-        size_t n = slopes.size(); 
-
-        for(const auto &[_, f] : freq) {
-            entropy += (double(f) / double(n)) * log2((double(n) / double(f)));
-        }
-
-        return entropy;
-    }
-
 };

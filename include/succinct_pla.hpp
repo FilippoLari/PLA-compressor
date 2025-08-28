@@ -4,7 +4,7 @@
 #include <climits>
 #include <cstddef>
 #include <vector>
-#include <map>
+#include <unordered_map>
 
 #include "sdsl/int_vector.hpp"
 #include "sdsl/sd_vector.hpp"
@@ -13,6 +13,7 @@
 #include "sux/bits/EliasFano.hpp"
 
 #include "piecewise_linear_model.hpp"
+#include "utils.hpp"
 
 template<typename X, typename Y, bool Indexing = true>
 class SuccinctPLA {
@@ -112,9 +113,9 @@ public:
             gamma_shift = (tmp_gammas[i] < gamma_shift) ? tmp_gammas[i] : gamma_shift;
         }
 
-        betas = build_packed_vector(tmp_betas, beta_shift);
+        betas = build_packed_vector<int64_t>(tmp_betas, beta_shift);
 
-        gammas = build_packed_vector(tmp_gammas, gamma_shift);
+        gammas = build_packed_vector<int64_t>(tmp_gammas, gamma_shift);
 
         last_x = bv_x.back();
         
@@ -192,8 +193,8 @@ public:
     /**
      * @return a map containing the size of each component in bits
      */
-    std::map<std::string, size_t> components_size() {
-        std::map<std::string, size_t> components;
+    std::unordered_map<std::string, size_t> components_size() {
+        std::unordered_map<std::string, size_t> components;
         components["first_y"] = y.bitCount();
         components["last_v"] = last_v.bitCount();
         components["first_x"] = (sdsl::size_in_bytes(x) + sdsl::size_in_bytes(rank_x) +
@@ -210,18 +211,5 @@ public:
      */
     double bps() {
         return double(size()) / double(segments); 
-    }
-
-private:
-
-    sdsl::int_vector<> build_packed_vector(std::vector<int64_t> &vec, int64_t min) const {
-        std::transform(vec.begin(), vec.end(), vec.begin(),
-            [min](int64_t v) { return v - min; });
-
-        sdsl::int_vector<> packed_vec(vec.size());
-        std::copy(vec.begin(), vec.end(), packed_vec.begin());
-        sdsl::util::bit_compress(packed_vec);
-
-        return packed_vec;
     }
 };
