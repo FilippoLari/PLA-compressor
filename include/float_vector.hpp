@@ -12,9 +12,13 @@
 #include "sdsl/util.hpp"
 
 #include "huffman_vector.hpp"
-#include "dist_vector.hpp"
 #include "pfor_vector.hpp"
+#include "utils.hpp"
 
+/**
+ * A storage scheme for a sequence of floating-point values storing
+ * each sign, exponent and mantissa separately.
+ */
 template<class compressed_seq, typename Floating = float,
          bool AllPositive = true, bool AllNegative = false>
 class float_vector
@@ -34,10 +38,6 @@ class float_vector
                   "AllPositive and AllNegative cannot both be true");
 
     static constexpr bool DifferentSigns = !AllPositive && !AllNegative;
-
-    static constexpr int total_bits = sizeof(Floating) * 8;
-    static constexpr int exp_bits = (sizeof(Floating) == 4 ? 8 : 11);
-    static constexpr int mant_bits = total_bits - exp_bits - 1;
 
     sdsl::bit_vector signs;
 
@@ -60,7 +60,7 @@ public:
         std::vector<uint32_t> tmp_exponents(data.size());
 
         for(uint64_t i = 0; i < data.size(); ++i) {
-            const auto [sign, exponent, mantissa] = get_components(data[i]);
+            const auto [sign, exponent, mantissa] = get_components<Floating>(data[i]);
 
             tmp_mantissae[i] = mantissa;
             tmp_exponents[i] = exponent;
@@ -79,42 +79,16 @@ public:
         constexpr uint8_t default_sign = AllNegative ? 1 : 0;
         uint8_t sign = (DifferentSigns) ? signs[i] : default_sign;
         
-        UInt bits = 0;
-
-        bits |= (mantissa & ((UInt(1) << mant_bits) - 1));
-        bits |= (UInt(exponent) & ((1u << exp_bits) - 1)) << mant_bits;
-        bits |= (UInt(sign & 0x1) << (total_bits - 1));
-
-        Floating result;
-        std::memcpy(&result, &bits, sizeof(Floating));
-        return result;
+        return build_float<Floating>(sign, exponent, mantissa);
     }
 
     inline uint64_t size() const {
         return signs.bit_size() + mantissae.size() + exponents.size();
     }
 
-private:
-
-    inline std::tuple<uint32_t, uint32_t, UInt> get_components(const Floating slope) const {
-        UInt bits;
-        std::memcpy(&bits, &slope, sizeof(Floating));
-        uint32_t sign;
-
-        if constexpr (DifferentSigns)
-            sign = (bits >> (total_bits - 1)) & 0x1;
-
-        uint32_t exponent = (bits >> mant_bits) & ((1u << exp_bits) - 1);
-        UInt mantissa = bits & ((UInt(1) << mant_bits) - 1);
-
-        return {sign, exponent, mantissa};
-    }
-
 };
 
 using huff_float_vector = float_vector<huffman_vector<uint32_t, 64>, float, true, false>;
-
-using dist_float_vector = float_vector<dist_vector<uint32_t>, float, true, false>;
 
 using pfor_float_vector = float_vector<pfor_vector<uint32_t>, float, true, false>;
 

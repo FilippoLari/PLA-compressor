@@ -1,16 +1,25 @@
 #pragma once
 
-#include <tuple>
+#include <unordered_map>
+#include <type_traits>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <type_traits>
 #include <vector>
-#include <unordered_map>
+#include <tuple>
 #include <cmath>
-#include <algorithm>
 
 #include "sdsl/int_vector.hpp"
 #include "sdsl/util.hpp"
+
+template<typename Floating>
+constexpr int total_bits = sizeof(Floating) * 8;
+
+template<typename Floating>
+constexpr int exp_bits   = (sizeof(Floating) == 4 ? 8 : 11);
+
+template<typename Floating>
+constexpr int mant_bits  = total_bits<Floating> - exp_bits<Floating> - 1;
 
 template<typename Floating>
 using UIntOf = std::conditional_t<sizeof(Floating) == 4, uint32_t,
@@ -24,20 +33,32 @@ get_components(const Floating slope) {
 
     static_assert(!std::is_void_v<UInt>, "Unsupported floating type");
 
-    constexpr int total_bits = sizeof(Floating) * 8;
-    constexpr int exp_bits   = (sizeof(Floating) == 4 ? 8 : 11);
-    constexpr int mant_bits  = total_bits - exp_bits - 1;
-
     UInt bits{};
     std::memcpy(&bits, &slope, sizeof(Floating));
 
     uint32_t sign = 0;
-    sign = (bits >> (total_bits - 1)) & 0x1;
+    sign = (bits >> (total_bits<Floating> - 1)) & 0x1;
 
-    uint32_t exponent = (bits >> mant_bits) & ((1u << exp_bits) - 1);
-    UInt mantissa = bits & ((UInt(1) << mant_bits) - 1);
+    uint32_t exponent = (bits >> mant_bits<Floating>) & ((1u << exp_bits<Floating>) - 1);
+    UInt mantissa = bits & ((UInt(1) << mant_bits<Floating>) - 1);
 
     return {sign, exponent, mantissa};
+}
+
+template<typename Floating>
+inline Floating build_float(const uint32_t sign, const uint32_t exponent,
+                             const UIntOf<Floating> mantissa) {
+    using UInt = UIntOf<Floating>;
+    
+    UInt bits = 0;
+
+    bits |= (mantissa & ((UInt(1) << mant_bits<Floating>) - 1));
+    bits |= (UInt(exponent) & ((1u << exp_bits<Floating>) - 1)) << mant_bits<Floating>;
+    bits |= (UInt(sign & 0x1) << (total_bits<Floating> - 1));
+
+    Floating result;
+    std::memcpy(&result, &bits, sizeof(Floating));
+    return result;
 }
 
 template<typename T>

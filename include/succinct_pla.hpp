@@ -1,10 +1,10 @@
 #pragma once
 
+#include <unordered_map>
 #include <algorithm>
 #include <climits>
 #include <cstddef>
 #include <vector>
-#include <unordered_map>
 
 #include "sdsl/int_vector.hpp"
 #include "sdsl/sd_vector.hpp"
@@ -15,6 +15,17 @@
 #include "piecewise_linear_model.hpp"
 #include "utils.hpp"
 
+/**
+ * A compressed storage scheme for PLAs that achieves succinct space
+ * under mild assumptions on the number of segments, while still supporting
+ * fast query times.
+ *
+ * See the accompanying paper for details.
+ * 
+ * Complexity:
+ * - Space: 2l * (log(u/l) + log(n/l) + log(2epsilon + 1) + o(1)) bits
+ * - Time: O(log(l))  
+ */
 template<typename X, typename Y, bool Indexing = true>
 class SuccinctPLA {
 

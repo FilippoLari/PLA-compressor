@@ -1,8 +1,10 @@
 #include <iostream>
 #include <random>
+#include <vector>
 
-#include "plain_pla.hpp"
 #include "slope_compressed_pla.hpp"
+#include "succinct_pla.hpp
+#include "plain_pla.hpp"
 
 int main(void) {
     const uint64_t epsilon = 32;
@@ -13,44 +15,17 @@ int main(void) {
 
     std::sort(data.begin(), data.end());
 
-    //SuccinctPLA<uint64_t, uint32_t> spla(data, epsilon);
+    PlainPLA<uint64_t, uint64_t, float> plain_pla(data, epsilon);
 
-    SlopeCompressedPLA<uint64_t, uint32_t, float, pfor_float_vector, true> spla(data, epsilon);
+    SuccinctPLA<uint64_t, uint32_t> succ_pla(data, epsilon);
 
-    std::cout << "bps: " << spla.bps() << std::endl;
+    SlopeCompressedPLA<uint64_t, uint32_t, float, pfor_float_vector> slope_compr_pla(data, epsilon);
 
-    std::cout << "Component, Space (Bits), Occupancy (%)" << std::endl;
+    std::cout << "PLA\t\t Space (bits)\t\t Bits per Segment (bps)" << std::endl;
 
-    for(const auto &entry : spla.components_size())
-        std::cout << entry.first << ", " << entry.second << ", " <<
-                 (double(entry.second) / double(spla.size())) * 100 << std::endl;
+    std::cout << "plain\t\t" << plain_pla.size() << "\t\t" << plain_pla.bps() << std::endl;
 
-    /*PlainPLA<uint64_t, uint64_t, float> pla(data, epsilon);
+    std::cout << "succinct\t\t" << succ_pla.size() << "\t\t" << succ_pla.bps() << std::endl;
 
-    std::cout << pla.bps() << std::endl;
-
-    std::cout << pla.bps_lower_bound(data) << std::endl;*
-
-    //SlopeCompressedPLA<uint64_t, uint64_t, float, huff_float_vector> pla(data, epsilon);
-    
-    //std::cout << "bps: " << pla.bps() << std::endl;
-
-    /*CompressedPLA<uint64_t, uint64_t> cpla(data, epsilon);
-
-    PlainPLA<uint64_t, uint64_t, float> pla(data, epsilon);
-
-    std::map<std::string, size_t> components = cpla.components_size();
-
-    std::cout << "bits per segment: " << pla.bps() << std::endl;
-    std::cout << "bits per segment (compr.): " << cpla.bps() << std::endl;
-
-    std::cout << "compression ratio: " << pla.bps() / cpla.bps() << std::endl; 
-
-    std::cout << "plain space: " << pla.size() << " compr. space: " << cpla.size() << std::endl;
-
-    std::cout << "Component, Space (Bits), Occupancy (%)" << std::endl;
-
-    for(const auto &entry : components)
-        std::cout << entry.first << ", " << entry.second << ", " <<
-                 (double(entry.second) / double(cpla.size())) * 100 << std::endl;*/
+    std::cout << "slope compr.\t\t" << slope_compr_pla.size() << "\t\t" << slope_compr_pla.bps() << std::endl;
 }

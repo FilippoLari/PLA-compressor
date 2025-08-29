@@ -7,6 +7,10 @@
 
 #include "piecewise_linear_model.hpp"
 
+/**
+ * A plain PLA implementation representing each segment with its slope, 
+ * intercept, and first covered x-value.
+ */
 template<typename X, typename Y, typename Floating, bool Indexing = true>
 class PlainPLA {
 
@@ -28,7 +32,7 @@ public:
     PlainPLA() = default;
 
     explicit PlainPLA(const std::vector<std::conditional_t<Indexing, X, Y>>& data,
-                         const uint64_t epsilon) : n(data.size()), u(data.back()) {
+                         const uint64_t epsilon) : epsilon(epsilon), n(data.size()), u(data.back()) {
         if(n == 0) [[unlikely]] 
             return;
 

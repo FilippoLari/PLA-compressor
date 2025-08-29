@@ -1,18 +1,26 @@
 #pragma once
 
 #include <type_traits>
+#include <iostream>
+#include <optional>
 #include <cassert>
 #include <cstring>
-#include <optional>
 #include <cstdint>
 #include <climits>
 #include <vector>
 #include <tuple>
 #include <bit>
-#include <iostream>
 
 #include "piecewise_linear_model.hpp"
+#include "utils.hpp"
 
+/**
+ * Given a collection of floating-point ranges, chooses one representative
+ * value from each range. The selection is performed to minimize the
+ * empirical entropy of the resulting mantissae distribution.
+ * 
+ * TODO: Add support for doubles.
+ */
 class slope_compressor {
 
     struct range {
@@ -79,10 +87,6 @@ class slope_compressor {
 
 public:
     
-    static constexpr int total_bits = sizeof(float) * 8;
-    static constexpr int exp_bits = (sizeof(float) == 4 ? 8 : 11);
-    static constexpr int mant_bits = total_bits - exp_bits - 1;
-
     static std::vector<float> compress(const std::vector<std::pair<float, float>> &slope_ranges) {
 
         std::vector<float> slopes(slope_ranges.size());
@@ -96,8 +100,8 @@ public:
             
             auto [a, b, norm, remap] = normalize_range(orig_a, orig_b);
 
-            auto [exp_a, mant_a] = get_components(a);
-            auto [exp_b, mant_b] = get_components(b);
+            auto [sign_a, exp_a, mant_a] = get_components<float>(a);
+            auto [sign_b, exp_b, mant_b] = get_components<float>(b);
 
             range r(exp_a, mant_a, exp_b, mant_b, i, norm, remap);
 
@@ -192,7 +196,7 @@ public:
             // e_a is always the correct exponent
             for(const range &r : intersection.ranges) {
                 const uint32_t sign = (r.norm_r && (mant >= r.r_m)) ? 1 : 0;
-                slopes[r.idx] = build_float(sign, r.e_a, mant);
+                slopes[r.idx] = build_float<float>(sign, r.e_a, mant);
             }
         }
 
@@ -212,7 +216,7 @@ public:
                 exponent = r.e_a;
             }
 
-            slopes[r.idx] = build_float(0, exponent, most_freq_mant);
+            slopes[r.idx] = build_float<float>(0, exponent, most_freq_mant);
         }
 
         // sanity check
@@ -252,28 +256,4 @@ public:
             return {-b, -a, true, remap};
         }
     }
-
-    static inline std::pair<uint32_t, uint32_t>
-    get_components(const float slope) {
-        uint32_t bits;
-        std::memcpy(&bits, &slope, sizeof(float));
-
-        uint32_t exponent = (bits >> mant_bits) & ((1u << exp_bits) - 1);
-        uint32_t mantissa = bits & ((uint32_t(1) << mant_bits) - 1);
-
-        return {exponent, mantissa};
-    }
-
-    static inline float build_float(const uint32_t sign, const uint32_t exponent, const uint32_t mantissa) {
-        uint32_t bits = 0;
-
-        bits |= (mantissa & ((uint32_t(1) << mant_bits) - 1));
-        bits |= (uint32_t(exponent) & ((1u << exp_bits) - 1)) << mant_bits;
-        bits |= (uint32_t(sign & 0x1) << (total_bits - 1));
-
-        float result;
-        std::memcpy(&result, &bits, sizeof(float));
-        return result;
-    }
-
 };

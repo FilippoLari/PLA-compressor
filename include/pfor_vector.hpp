@@ -9,7 +9,7 @@
 
 /**
  * A compressed sequence inspired by the PForDelta encoding.
- * It stores the distinct symbols in the sequence, sorted by frequency.
+ * It stores the distinct symbols in the sequence sorted by frequency.
  * A separate array stores indexes inside the symbol table. This array is 
  * splitted into two parts: one storing indexes that can be represented 
  * using b bist, and the other storing the remaining indexes. A bit vector keeps 

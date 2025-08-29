@@ -17,6 +17,27 @@
 
 #include "sux/bits/EliasFano.hpp"
 
+/**
+ * A compressed PLA where each segment is encoded 
+ * as a tuple (x, y, delta, slope):
+ *
+ * - x: the first covered x-coordinate
+ * - y: the corresponding y-coordinate at x
+ * - delta: the vertical offset between y and the segment’s predicted value at x
+ * - slope: the slope of the segment
+ *
+ * Compression details:
+ * - The sequences of x- and y-values are stored using Elias–Fano.
+ * - The sequence of deltas is stored using bit packing.
+ * - Since multiple slopes are possible for the same PLA segment, slopes are selected 
+ *   to minimize the empirical entropy of their mantissae. The resulting sequence
+ *   is then stored using a specialized container (e.g., see float_vector.hpp)
+ * 
+ * Complexity:
+ * - Space (Indexing): l(log(u/l) + log(2epsilon+1) + o(1)) + |slopes| bits 
+ * - Space (Compression): l(log(n/l) + log(2epsilon+1) + o(1)) + |slopes| bits
+ * - Time: O(t_slopes + log(l))
+ */
 template<typename X, typename Y, typename Floating, 
             class slope_container, bool Indexing = true>
 class SlopeCompressedPLA {
@@ -54,17 +75,18 @@ public:
         const uint64_t expected_segments = n / (epsilon * epsilon);
         
         std::vector<std::pair<Floating, Floating>> slope_ranges;
+        std::vector<std::pair<long double, long double>> xy_pairs;
         std::vector<int64_t> tmp_beta;
         std::vector<uint64_t> tmp_y;
         std::vector<X> bv_x;
 
+        slope_ranges.reserve(expected_segments);
+        xy_pairs.reserve(expected_segments);
         tmp_beta.reserve(expected_segments);
         tmp_y.reserve(expected_segments);
         bv_x.reserve(expected_segments);
 
         beta_shift = std::numeric_limits<int64_t>::max();
-
-        std::vector<std::pair<long double, long double>> xy_pairs;
 
         auto in_fun = [data](auto i) { 
             if constexpr (Indexing)
@@ -76,9 +98,9 @@ public:
         auto out_fun = [&](auto cs) { 
             const X x = cs.get_first_x();
             const Y y = cs.get_first_y();
-            slope_ranges.push_back(cs.get_slope_range());
             tmp_y.push_back(y);
             bv_x.push_back(x);
+            slope_ranges.push_back(cs.get_slope_range());
             xy_pairs.push_back(cs.get_intersection());
         };
 
@@ -102,8 +124,6 @@ public:
             Floating slope = min_entropy_slopes[i];
             int64_t beta = (int64_t) std::round(i_y - (i_x - select_x(i + 1)) * slope);
             int64_t delta = beta - tmp_y[i];
-            
-            assert(std::abs(delta) <= 2*(epsilon + 1));
             beta_shift = (delta < beta_shift) ? delta : beta_shift;
             tmp_beta.push_back(delta);
         }

@@ -1,12 +1,12 @@
 #pragma once
 
-#include <cstdint>
-#include <map>
-#include <memory>
-#include <vector>
 #include <algorithm>
+#include <cstdint>
 #include <cassert>
 #include <climits>
+#include <memory>
+#include <vector>
+#include <map>
 
 #include "sdsl/int_vector.hpp"
 #include "sdsl/util.hpp"
@@ -95,15 +95,14 @@ public:
 };
 
 /**
- * A sequence of Huffman coded integers supporting random
- * access without decompressing the whole sequence.
+ * An Huffman encoded sequence supporting random access.
  * 
  * Assuming dens is set to log(n) the following
  * are the space and time complexities:
  * 
- * Space: n(H+2+o(1)) + |S|log|S| + O(log^2(n)) bits.
+ * Space: n(H+2+o(1)) + Slog(S) + O(log^2(n)) bits.
  *      - H is the zero-order empirical entropy of the sequence.
- *      - |S| is the alphabet size.
+ *      - S is the alphabet size.
  *      - n is the sequence length.
  * 
  * Access time: O(log(n)loglog(n)) 

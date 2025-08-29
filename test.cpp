@@ -9,8 +9,6 @@
 #include "plain_pla.hpp"
 
 #include "huffman_vector.hpp"
-#include "dist_vector.hpp"
-#include "rle_vector.hpp"
 #include "float_vector.hpp"
 #include "pfor_vector.hpp"
 
@@ -60,19 +58,10 @@ std::vector<uint32_t> TestingData::int_data;
 std::vector<uint32_t> TestingData::sorted_int_data;
 std::vector<float> TestingData::float_data;
 
-/*
 TEST_F(TestingData, HuffVectorTest) {
     huffman_vector<uint32_t, 64> hv(int_data);
     for(uint64_t i = 0; i < int_data.size(); ++i) {
         ASSERT_EQ(hv[i], int_data[i]) << " hv[i] = " << hv[i] << ", data[i] = " << int_data[i] << 
-                                        " i: " << i;
-    }
-}
-
-TEST_F(TestingData, DistVectorTest) {
-    dist_vector<uint32_t> dv(int_data);
-    for(uint64_t i = 0; i < int_data.size(); ++i) {
-        ASSERT_EQ(dv[i], int_data[i]) << " dv[i] = " << dv[i] << ", data[i] = " << int_data[i] << 
                                         " i: " << i;
     }
 }
@@ -85,33 +74,36 @@ TEST_F(TestingData, HuffFloatVectorTest) {
     }
 }
 
-TEST_F(TestingData, DistFloatVectorTest) {
-    dist_float_vector dfv(float_data);
-    for(uint64_t i = 0; i < float_data.size(); ++i) {
-        ASSERT_EQ(dfv[i], float_data[i]) << " dfv[i] = " << dfv[i] << ", data[i] = " << float_data[i] << 
-                                        " i: " << i;
-    }
-}
-
-TEST_F(TestingData, RunLengthVectorTest) {
-    rle_vector<uint32_t> rlev(int_data);
-    for(uint64_t i = 0; i < int_data.size(); ++i) {
-        ASSERT_EQ(rlev[i], int_data[i]) << " rlev[i] = " << rlev[i] << ", data[i] = " << int_data[i] << 
-                                        " i: " << i;
-    }
-}
-
 TEST_F(TestingData, PForVectorTest) {
     pfor_vector<uint32_t> pfv(int_data);
     for(uint64_t i = 0; i < int_data.size(); ++i) {
         ASSERT_EQ(pfv[i], int_data[i]) << " pfv[i] = " << pfv[i] << ", data[i] = " << int_data[i] << 
                                         " i: " << i;
     }
-}*/
+}
 
-TEST_F(TestingData, PlainPLATest) {
-    PlainPLA<uint32_t, uint32_t, float> pla(sorted_int_data, 64);
-    const int32_t range_size = 2*(128 + 2);
+TEST_F(TestingData, PForFloatVectorTest) {
+    pfor_float_vector pfv(float_data);
+    for(uint64_t i = 0; i < float_data.size(); ++i) {
+        ASSERT_EQ(pfv[i], float_data[i]) << " pfv[i] = " << pfv[i] << ", data[i] = " << float_data[i] << 
+                                        " i: " << i;
+    }
+}
+
+TEST_F(TestingData, PlainPLAIndexingTest) {
+    PlainPLA<uint32_t, uint32_t, float, true> pla(sorted_int_data, 128);
+    const int32_t range_size = 2*(128 + 1);
+    for(uint64_t i = 0; i < sorted_int_data.size(); ++i) {
+        const uint32_t pred = pla.predict(sorted_int_data[i]);
+        int32_t diff = int32_t(pred) - int32_t(i);
+        diff = (diff < 0) ? -diff : diff;
+        ASSERT_TRUE((diff <= range_size)) << "pred: " << pred << " real: " << i << " diff: " << diff;
+    }
+}
+
+TEST_F(TestingData, PlainPLACompressionTest) {
+    PlainPLA<uint32_t, uint32_t, float, false> pla(sorted_int_data, 128);
+    const int32_t range_size = 2*(128 + 1);
     for(uint64_t i = 0; i < sorted_int_data.size(); ++i) {
         const uint32_t y = sorted_int_data[i];
         const uint32_t pred = pla.predict(i);
@@ -145,7 +137,7 @@ TEST_F(TestingData, SuccinctPLACompressionTest) {
 }
 
 TEST_F(TestingData, SlopeCompressedIndexingPLATest) {
-    SlopeCompressedPLA<uint32_t, uint32_t, float, dist_float_vector, true> scpla(sorted_int_data, 128);
+    SlopeCompressedPLA<uint32_t, uint32_t, float, pfor_float_vector, true> scpla(sorted_int_data, 128);
     const int32_t range_size = 2*(128 + 1);
     for(size_t i = 0; i < sorted_int_data.size(); ++i) {
         const uint32_t pred = scpla.predict(sorted_int_data[i]);
@@ -156,7 +148,7 @@ TEST_F(TestingData, SlopeCompressedIndexingPLATest) {
 }
 
 TEST_F(TestingData, SlopeCompressedCompressionPLATest) {
-    SlopeCompressedPLA<uint32_t, uint32_t, float, dist_float_vector, false> scpla(sorted_int_data, 128);
+    SlopeCompressedPLA<uint32_t, uint32_t, float, pfor_float_vector, false> scpla(sorted_int_data, 128);
     const int32_t range_size = 2*(128 + 1);
     for(size_t i = 0; i < sorted_int_data.size(); ++i) {
         const uint32_t pred = scpla.predict(i);
