@@ -1,9 +1,6 @@
 [submodule "libs/sdsl-lite"]
 	path = libs/sdsl-lite
 	url = https://github.com/xxsds/sdsl-lite
-[submodule "libs/sux"]
-	path = libs/sux
-	url = https://github.com/vigna/sux
 [submodule "libs/googletest"]
 	path = libs/googletest
 	url = https://github.com/google/googletest

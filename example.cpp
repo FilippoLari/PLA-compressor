@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "slope_compressed_pla.hpp"
-#include "succinct_pla.hpp
+#include "succinct_pla.hpp"
 #include "plain_pla.hpp"
 
 int main(void) {
@@ -21,11 +21,9 @@ int main(void) {
 
     SlopeCompressedPLA<uint64_t, uint32_t, float, pfor_float_vector> slope_compr_pla(data, epsilon);
 
-    std::cout << "PLA\t\t Space (bits)\t\t Bits per Segment (bps)" << std::endl;
+    std::cout << "[plain] size: " << plain_pla.size() << " bps: " << plain_pla.bps() << std::endl;
 
-    std::cout << "plain\t\t" << plain_pla.size() << "\t\t" << plain_pla.bps() << std::endl;
+    std::cout << "[succinct] size: " << succ_pla.size() << " bps: " << succ_pla.bps() << std::endl;
 
-    std::cout << "succinct\t\t" << succ_pla.size() << "\t\t" << succ_pla.bps() << std::endl;
-
-    std::cout << "slope compr.\t\t" << slope_compr_pla.size() << "\t\t" << slope_compr_pla.bps() << std::endl;
+    std::cout << "[slope compr.] size: " << slope_compr_pla.size() << " bps: " << slope_compr_pla.bps() << std::endl;
 }
