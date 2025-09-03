@@ -4,6 +4,3 @@
 [submodule "libs/googletest"]
 	path = libs/googletest
 	url = https://github.com/google/googletest
-[submodule "libs/sux"]
-	path = libs/sux
-	url = https://github.com/FilippoLari/sux
